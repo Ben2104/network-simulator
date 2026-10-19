@@ -17,7 +17,7 @@ stations and roads between sends and watch the route change, or see "no route av
 
 | #   | Question                | Decision                                                                                                                                                                             |
 | --- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Q1  | How "real" is the graph | Real places (approximate city coordinates), hand-picked links, labeled illustrative. ~18–22 nodes, ~30 links.                                                                        |
+| Q1  | How "real" is the graph | Real places (approximate city coordinates), hand-picked links, labeled illustrative. Final: 19 nodes, 24 links (see architecture.md).                                                |
 | Q2  | BFS vs geography        | Keep BFS (fewest hops). Topology designed so fewest-hop routes look geographically sensible. UI states "BFS = fewest hops, not shortest distance". Dijkstra is a stretch goal.       |
 | Q3  | File handling           | Simulated. Browser sends only file name + size; contents never leave the browser. 1,500 B packets, capped at 24 cars.                                                                |
 | Q4  | 3D stack                | React Three Fiber + drei.                                                                                                                                                            |
@@ -66,9 +66,9 @@ interface Network {
   2. Default BFS route contains no link longer than 450 km (no cross-region shortcut).
   3. Every link endpoint exists; graph connected.
 
-Indicative node set (final list in `topology.ts`): CSULB lot, Long Beach ISP, LA One Wilshire,
+Node set (full table with coordinates in `docs/architecture.md`): CSULB lot, Long Beach ISP, LA One Wilshire,
 El Segundo, Riverside, Bakersfield, San Luis Obispo, Fresno, San Jose, Oakland, Sacramento,
-Reno, Redding, Medford, Eugene, Portland, US-West Data Center (Oregon) lot.
+Reno, Redding, Klamath Falls, Medford, Eugene, Bend, Portland, US-West Data Center (Oregon) lot.
 
 ### Submit — `POST /api/packetize`
 

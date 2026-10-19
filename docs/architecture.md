@@ -64,7 +64,7 @@ apps/
 packages/shared/src/
   schemas.ts, limits.ts, projection.ts
 docs/
-  architecture.md, design/stitch-prompt.md, superpowers/specs/
+  architecture.md, design/stitch-prompt.md, superpowers/specs/, superpowers/plans/
 ```
 
 ## Key decisions
@@ -136,6 +136,73 @@ unit-testable without WebGL.
 
 SVG view stays. It is the default when WebGL is unavailable or `prefers-reduced-motion` is set,
 the keyboard/screen-reader path for toggling failures, and the Playwright E2E target.
+
+## Network topology (fixed)
+
+19 nodes, 24 roads. Real places at approximate city coordinates; links are hand-picked and
+illustrative. Source of truth will be `apps/server/src/graph/topology.ts`. Link ID =
+`${source}--${target}`.
+
+| ID              | Label               | Kind   | Place               | Lat     | Lon       |
+| --------------- | ------------------- | ------ | ------------------- | ------- | --------- |
+| `csulb`         | CSULB Parking Lot   | client | Long Beach, CA      | 33.7838 | -118.1141 |
+| `lb-isp`        | Long Beach ISP      | router | Long Beach, CA      | 33.7701 | -118.1937 |
+| `el-segundo`    | El Segundo          | router | El Segundo, CA      | 33.9192 | -118.4165 |
+| `la-wilshire`   | One Wilshire        | router | Los Angeles, CA     | 34.0488 | -118.2558 |
+| `riverside`     | Riverside           | router | Riverside, CA       | 33.9806 | -117.3755 |
+| `bakersfield`   | Bakersfield         | router | Bakersfield, CA     | 35.3733 | -119.0187 |
+| `slo`           | San Luis Obispo     | router | San Luis Obispo, CA | 35.2828 | -120.6596 |
+| `fresno`        | Fresno              | router | Fresno, CA          | 36.7378 | -119.7871 |
+| `san-jose`      | San Jose            | router | San Jose, CA        | 37.3382 | -121.8863 |
+| `oakland`       | Oakland             | router | Oakland, CA         | 37.8044 | -122.2712 |
+| `sacramento`    | Sacramento          | router | Sacramento, CA      | 38.5816 | -121.4944 |
+| `reno`          | Reno                | router | Reno, NV            | 39.5296 | -119.8138 |
+| `redding`       | Redding             | router | Redding, CA         | 40.5865 | -122.3917 |
+| `klamath-falls` | Klamath Falls       | router | Klamath Falls, OR   | 42.2249 | -121.7817 |
+| `medford`       | Medford             | router | Medford, OR         | 42.3265 | -122.8756 |
+| `eugene`        | Eugene              | router | Eugene, OR          | 44.0521 | -123.0868 |
+| `bend`          | Bend                | router | Bend, OR            | 44.0582 | -121.3153 |
+| `portland`      | Portland            | router | Portland, OR        | 45.5152 | -122.6784 |
+| `oregon-dc`     | US-West Data Center | server | Boardman, OR        | 45.8399 | -119.7006 |
+
+Roads: csulb–lb-isp, csulb–el-segundo, lb-isp–la-wilshire, lb-isp–riverside,
+la-wilshire–bakersfield, riverside–bakersfield, el-segundo–slo, bakersfield–fresno,
+slo–san-jose, fresno–sacramento, san-jose–oakland, oakland–sacramento, oakland–redding,
+sacramento–redding, sacramento–reno, reno–klamath-falls, redding–medford,
+medford–klamath-falls, medford–eugene, klamath-falls–bend, eugene–bend, eugene–portland,
+bend–oregon-dc, portland–oregon-dc. Longest: reno–klamath-falls, 342 km.
+
+Two station-disjoint corridors: **coast** (El Segundo → SLO → San Jose → Oakland → Redding →
+Medford → Eugene) and **inland** (LB ISP → LA/Riverside → Bakersfield → Fresno → Sacramento →
+Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon.
+
+### Demo routes (asserted in tests)
+
+BFS neighbors are sorted by code-unit string order (not `localeCompare`), so routes never depend
+on server locale.
+
+| Failures                 | Route                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| none                     | csulb → el-segundo → slo → san-jose → oakland → redding → medford → eugene → bend → oregon-dc (9 hops)     |
+| station `oakland`        | csulb → lb-isp → la-wilshire → bakersfield → fresno → sacramento → reno → klamath-falls → bend → oregon-dc |
+| road `oakland--redding`  | csulb → el-segundo → slo → san-jose → oakland → sacramento → reno → klamath-falls → bend → oregon-dc       |
+| `sacramento` + `redding` | none — BFS explores 10 stations, "No route available"                                                      |
+| start at `sacramento`    | sacramento → reno → klamath-falls → bend → oregon-dc                                                       |
+
+### Packetization examples
+
+| Input    | Packets | Cars | Notes                              |
+| -------- | ------- | ---- | ---------------------------------- |
+| 1 B      | 1       | 1    |                                    |
+| 36,000 B | 24      | 24   | one packet per car                 |
+| 1 MiB    | 700     | 24   | cars 0–3 carry 30 packets, rest 29 |
+| 1 GiB    | 715,828 | 24   | max declared size                  |
+
+### Map projection
+
+`project(lat, lon)` in `packages/shared`: equirectangular over lat 32.5–46.5, lon −125 to −116,
+scaled by cos(39.5°). Output width 600 units, height ≈ 1210; x grows east, y grows south (SVG).
+3D uses x → x, y → z.
 
 ## Simulation state machine
 
@@ -276,6 +343,19 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | `sim/` reducer + timeline              | To do                                    |
 | 3D scene, cars, camera                 | To do                                    |
 | Component + E2E tests                  | To do                                    |
+
+## Roadmap
+
+Implementation plans: [`superpowers/plans/`](superpowers/plans/README.md). Plan 1 (contract +
+backend v2) is written task-by-task; Plans 2–6 are written by their owners at the start of their
+week.
+
+| Week | Milestone                                                                       |
+| ---- | ------------------------------------------------------------------------------- |
+| W1   | Plan 1 merged: West Coast topology, `/packetize`, `fromNodeId`; contract frozen |
+| W2   | `sim/` reducer + timeline; Submit → delivered in 2D                             |
+| W3   | 3D scene, cars, camera; feature-complete                                        |
+| W4   | E2E, a11y, deploy to Oregon, demo rehearsal; bug fixes only                     |
 
 ## Stretch goals
 

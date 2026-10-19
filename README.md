@@ -51,7 +51,7 @@ Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/sh
 apps/server      Fastify API (topology, BFS, packetization)
 apps/web         React UI: 3D scene (scene3d/), 2D fallback (view2d/), sim state + timeline (sim/)
 packages/shared  API schemas, types, limits, lat/lon projection (used by both apps)
-docs/            architecture.md, design spec, Stitch UI prompt
+docs/            architecture.md, design spec, implementation plans, Stitch UI prompt
 render.yaml      Render deployment blueprint
 ```
 
@@ -106,6 +106,8 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 
 - [Design spec](docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md) — decisions,
   contract, state machine, team ownership, stretch goals.
+- [Implementation plans](docs/superpowers/plans/README.md) — one plan per subsystem, owner and
+  week. Start with Plan 1.
 - [Stitch UI prompt](docs/design/stitch-prompt.md) — paste into Google Stitch for mockups.
 
 ## Status
@@ -114,6 +116,8 @@ Foundation done: monorepo, CI, Render blueprint, shared contract, BFS with tests
 with send/reset and toggles on a 9-node demo graph. The v1 code still uses `x/y` nodes and
 `message` on `/route`.
 
-Next: West Coast topology (lat/lon), `/packetize`, `fromNodeId`, `sim/` reducer and timeline,
+Next ([Plan 1](docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md)): West Coast
+topology (19 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
+`/packetize`, `fromNodeId`; then `sim/` reducer and timeline,
 3D scene and cars, component and E2E tests. See the status table in
 [docs/architecture.md](docs/architecture.md#implementation-status).
