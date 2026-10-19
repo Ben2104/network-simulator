@@ -1,13 +1,16 @@
-# Network Route Simulator
+# Packet Highway — Network Route Simulator
 
-Send a message from your "computer" to a server through a network of virtual routers. A
-breadth-first search finds the route. Break routers or links and watch it reroute.
+Submit a file at the **CSULB parking lot**. It is split into packets, shown as 3D **cars**.
+Press **Send**: breadth-first search explores a West Coast network of **stations** (routers),
+then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Break stations
+or roads and send again to watch it reroute.
 
-> **Educational simulation only.** Routers are nodes in an in-memory graph. The app does not
-> inspect, control, or route real network traffic.
+> **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
+> illustrative, not real ISP topology. The app does not inspect, control, or route real network
+> traffic. File contents never leave your browser — only name and size are sent.
 
-**Stack:** React + TypeScript (Vite) · Fastify + TypeScript · shared TypeBox contract · npm
-workspaces · Render.
+**Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
+shared TypeBox contract · npm workspaces · Render.
 
 ## Quick start
 
@@ -45,10 +48,10 @@ Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/sh
 ## Layout
 
 ```
-apps/server      Fastify API (graph model, BFS, routes)
-apps/web         React UI
-packages/shared  API schemas, types, limits (used by both apps)
-docs/            architecture.md
+apps/server      Fastify API (topology, BFS, packetization)
+apps/web         React UI: 3D scene (scene3d/), 2D fallback (view2d/), sim state + timeline (sim/)
+packages/shared  API schemas, types, limits, lat/lon projection (used by both apps)
+docs/            architecture.md, design spec, Stitch UI prompt
 render.yaml      Render deployment blueprint
 ```
 
@@ -57,20 +60,27 @@ render.yaml      Render deployment blueprint
 See **[docs/architecture.md](docs/architecture.md)** for diagrams, design decisions, the full API
 contract, error codes, limits, config, and deployment details. Summary:
 
-- **Stateless API.** Server holds one fixed topology. Browser sends disabled routers/links with
-  each request. Survives Render restarts; concurrent users do not collide.
+- **Two steps.** Submit → `/packetize` splits the file into ≤ 24 cars. Send → `/route` runs BFS
+  against current failures, then search animation, then cars drive.
+- **Stateless API.** Server holds one fixed topology. Browser holds cars and disabled
+  stations/roads. Survives Render restarts; concurrent users do not collide.
+- **BFS = fewest hops,** not shortest distance. Topology is designed so fewest-hop routes look
+  sensible on the map.
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
 - **Deterministic.** Fixed topology, sorted neighbor order. Same input → same route, every demo.
+- **3D + 2D.** React Three Fiber scene with an SVG fallback (no WebGL, reduced motion, keyboard
+  and screen-reader use). Both render from one pure timeline.
 
 ### API at a glance
 
-| Method | Path           | Purpose                                                                                           |
-| ------ | -------------- | ------------------------------------------------------------------------------------------------- |
-| GET    | `/api/health`  | Liveness for Render                                                                               |
-| GET    | `/api/network` | Topology: nodes (with x/y), links, client/server IDs                                              |
-| POST   | `/api/route`   | `{ message, disabledNodeIds, disabledLinkIds }` → BFS `visitOrder`, `path`, `linkPath`, `packets` |
+| Method | Path             | Purpose                                                                                                |
+| ------ | ---------------- | ------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/health`    | Liveness for Render                                                                                    |
+| GET    | `/api/network`   | Stations/lots (lat/lon), roads (`distanceKm`), client/server IDs                                       |
+| POST   | `/api/packetize` | Submit: `{ source: "file", fileName, sizeBytes }` or `{ source: "message", message }` → packets + cars |
+| POST   | `/api/route`     | Send: `{ fromNodeId?, disabledNodeIds, disabledLinkIds }` → `visitOrder`, `path`, `linkPath`           |
 
 Errors: `{ "error": { "code", "message" } }`.
 
@@ -92,7 +102,18 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 3. Run `npm run check` before pushing. CI runs the same plus `build`.
 4. Open a PR; one reviewer approval to merge.
 
+## Design docs
+
+- [Design spec](docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md) — decisions,
+  contract, state machine, team ownership, stretch goals.
+- [Stitch UI prompt](docs/design/stitch-prompt.md) — paste into Google Stitch for mockups.
+
 ## Status
 
-Foundation only: API, BFS with tests, static SVG graph, send/reset, router/link toggling. Not yet:
-BFS step replay, packet animation, playback controls, guided demo mode, frontend/E2E tests.
+Foundation done: monorepo, CI, Render blueprint, shared contract, BFS with tests, 2D SVG view
+with send/reset and toggles on a 9-node demo graph. The v1 code still uses `x/y` nodes and
+`message` on `/route`.
+
+Next: West Coast topology (lat/lon), `/packetize`, `fromNodeId`, `sim/` reducer and timeline,
+3D scene and cars, component and E2E tests. See the status table in
+[docs/architecture.md](docs/architecture.md#implementation-status).

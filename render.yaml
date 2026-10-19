@@ -4,6 +4,7 @@ services:
   - type: web
     name: netsim-api
     runtime: node
+    region: oregon
     plan: free
     buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/server
     startCommand: npm run start -w @netsim/server

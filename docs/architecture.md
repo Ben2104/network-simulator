@@ -1,142 +1,158 @@
 # Architecture
 
-> Educational simulation. "Routers" are nodes in an in-memory graph. Nothing here inspects,
-> controls, or routes real network traffic.
+> Educational simulation. Stations are nodes in an in-memory graph. Nothing here inspects,
+> controls, or routes real network traffic. The West Coast network is illustrative, not real ISP
+> topology.
+
+Full design rationale: [`superpowers/specs/2026-10-19-3d-packet-highway-design.md`](superpowers/specs/2026-10-19-3d-packet-highway-design.md).
+
+## Concept
+
+| Simulation         | Networking term | Shown as                             |
+| ------------------ | --------------- | ------------------------------------ |
+| CSULB parking lot  | client          | lot at Long Beach                    |
+| Oregon parking lot | server          | lot at "US-West Data Center, Oregon" |
+| Station            | router          | station at a real West Coast city    |
+| Road               | link            | curved road between stations         |
+| Car                | packet bundle   | 3D car; ≤ 24 per transfer            |
+
+Flow: **Submit** a file → server splits it into packets → cars appear in the CSULB lot.
+**Send** → BFS searches the network (stations light up in visit order) → chosen route highlights
+→ cars drive it and park in the Oregon lot. Break/restore stations and roads between sends.
 
 ## System overview
 
 ```
-┌──────────────────────────── Browser ────────────────────────────┐
-│  apps/web  (React + Vite)                                       │
-│                                                                 │
-│  App state: disabledNodeIds, disabledLinkIds, last RouteResponse│
-│     │                                                           │
-│     ├── NetworkGraph (SVG)   ◄── renders Network + result       │
-│     └── api/client.ts        ──► fetch /api/*                   │
-└─────────────────────────────────┬───────────────────────────────┘
-                                  │ JSON over HTTPS
-┌─────────────────────────────────▼───────────────────────────────┐
-│  apps/server  (Fastify)                                         │
-│                                                                 │
-│  routes/health.ts    GET  /api/health                           │
-│  routes/network.ts   GET  /api/network                          │
-│                      POST /api/route ──► graph/bfs.ts (pure)    │
-│                                     └──► graph/packets.ts (pure)│
-│  errors.ts           uniform { error: { code, message } }       │
-└─────────────────────────────────────────────────────────────────┘
-            ▲                                   ▲
-            └──── packages/shared (TypeBox) ────┘
-                 schemas + types + LIMITS
+┌─────────────────────────────── Browser ───────────────────────────────┐
+│ apps/web (React + Vite)                                               │
+│                                                                       │
+│  ui/  FilePanel ─Submit─┐   SendBar ─Send─┐   BfsPanel  NetworkStatus │
+│                         ▼                 ▼                           │
+│  sim/ useSimulation reducer ◄──── api/client.ts ───────► fetch /api/* │
+│        │  state: phase, cars, failures, route, playback               │
+│        ▼                                                              │
+│       timeline.ts (pure) ──► scene3d/ (React Three Fiber)             │
+│                         └──► view2d/  (SVG fallback)                  │
+└──────────────────────────────────┬────────────────────────────────────┘
+                                   │ JSON over HTTPS
+┌──────────────────────────────────▼────────────────────────────────────┐
+│ apps/server (Fastify) — stateless                                     │
+│  GET  /api/health                                                     │
+│  GET  /api/network     ──► graph/topology.ts (lat/lon, distanceKm)    │
+│  POST /api/packetize   ──► graph/packets.ts  (pure)                   │
+│  POST /api/route       ──► graph/bfs.ts      (pure)                   │
+│  errors.ts  uniform { error: { code, message } }                      │
+└───────────────────────────────────────────────────────────────────────┘
+            ▲                                         ▲
+            └──── packages/shared: TypeBox schemas, types, LIMITS, project()
 ```
 
-## Repository layout
+## Repository layout (target)
 
 ```
 apps/
-  server/            Fastify API
-    src/app.ts         buildApp(): wires plugins, no listen (testable via inject)
-    src/index.ts       process entry: config, listen, graceful shutdown
-    src/config.ts      env parsing
-    src/errors.ts      HttpError + error/404 handlers
-    src/graph/         pure algorithm code, no Fastify imports
-    src/routes/        HTTP layer only: validate → call graph/ → shape response
-  web/               React SPA
-    src/api/           typed fetch wrapper
-    src/components/    UI components
-packages/
-  shared/            API contract (TypeBox schemas, derived TS types, limits)
-docs/                architecture, this file
-render.yaml          Render Blueprint (API web service + static site)
-.github/workflows/   CI
+  server/src/
+    app.ts, index.ts, config.ts, errors.ts
+    graph/      topology.ts, bfs.ts, packets.ts, geo.ts (haversine) — no Fastify imports
+    routes/     health.ts, network.ts, packetize.ts
+  web/src/
+    api/        typed fetch client
+    sim/        useSimulation reducer, timeline.ts (pure)
+    scene3d/    Scene, Ground, ParkingLot, Station, Road, Cars, CameraRig, westcoast.json
+    view2d/     SVG graph, cars as dots, keyboard toggles
+    ui/         FilePanel, SendBar, BfsPanel, NetworkStatus, StatusBanner, ViewToggle, Legend
+packages/shared/src/
+  schemas.ts, limits.ts, projection.ts
+docs/
+  architecture.md, design/stitch-prompt.md, superpowers/specs/
 ```
 
 ## Key decisions
 
-### 1. Stateless backend: the client owns failure state
+### 1. Stateless backend
 
-The server holds one fixed topology. The **browser** holds which routers/links are disabled and
-sends them with each `POST /api/route`.
+The server holds one fixed topology and stores nothing between requests. The browser owns the
+packet plan (from Submit), the failure sets, and playback state.
 
-Why:
+- Render free instances restart and sleep; server state would vanish mid-demo.
+- Concurrent users never affect each other.
+- Reset is a client-side state clear.
 
-- Render free instances spin down and restart; server-side state would vanish mid-demo.
-- Several people can use the deployed demo at once without breaking each other's networks.
-- No database, no sessions, no locking. Every response is a pure function of the request.
-- Reset is free: clear two sets in the browser.
+### 2. Submit and Send are separate
 
-Trade-off: if the team later wants editable topologies or shared sessions, that becomes a
-stretch goal needing persistence.
+- **Submit** (`/packetize`) only splits bytes into packets and cars.
+- **Send** (`/route`) runs BFS against the failure set _at send time_. Submit once, break things,
+  send, and the route reflects the current network.
 
-### 2. Shared contract via TypeBox
+### 3. Files are simulated
 
-`packages/shared` defines every request/response as a TypeBox schema. One definition gives:
+Only `fileName` and `sizeBytes` leave the browser. File contents are never uploaded. Real packets
+are ~1,500 bytes, so 1 MB ≈ 700 packets; cars are capped at 24 and each carries a range of
+packets. No upload handling, no privacy exposure, deterministic output.
 
-- JSON Schema that Fastify uses to **validate requests** and **serialize responses**.
-- TS types (`Static<typeof X>`) imported by both apps.
+### 4. BFS on a geographic map
 
-Change the contract in one place → both apps fail typecheck until updated. The package is
-compiled with `tsc` to `dist/` so Node can import it at runtime; root scripts build it first.
+BFS minimizes **hop count**, not distance. Real routers weigh links (OSPF/IS-IS costs, BGP
+policy). We keep BFS and design the topology so fewest-hop routes look sensible on the map:
 
-Dependency rationale:
+- No long cross-region shortcut links in the default network (unit-tested invariant).
+- ≥ 2 station-disjoint routes CSULB → Oregon so a single failure always has a detour.
+- UI note: "BFS picks fewest hops, not shortest distance."
+- Links carry `distanceKm` for display and the Dijkstra stretch goal.
 
-| Package                                   | Why                                                        |
-| ----------------------------------------- | ---------------------------------------------------------- |
-| `@sinclair/typebox`                       | Schema + types from one source; Fastify-native JSON Schema |
-| `fastify`, `@fastify/cors`                | API server; CORS for separate static-site origin           |
-| `react`, `react-dom`, `vite`              | UI + dev server/bundler                                    |
-| `tsx`                                     | Run TS server in dev with watch, no build step             |
-| `vitest`                                  | Unit + `inject()` integration tests                        |
-| `eslint`, `typescript-eslint`, `prettier` | Lint/format                                                |
-| `concurrently`                            | One `npm run dev` for all three packages                   |
+### 5. Shared contract via TypeBox
 
-No graph/animation library yet. Graph is plain SVG (9 nodes need no layout engine). Packet
-animation can start with CSS/`requestAnimationFrame`; add a library only if that proves painful.
+`packages/shared` defines every request/response once. Fastify validates and serializes with the
+JSON Schema; both apps import the derived TS types. `project(lat, lon)` also lives here so 2D
+and 3D place nodes identically.
 
-### 3. Algorithms isolated from HTTP
+### 6. Algorithms isolated from HTTP
 
-`graph/bfs.ts` exports `findRoute(network, from, to, failures)`. No Fastify, no I/O. Route
-handlers only validate, call it, and shape the response. All algorithm tests run without HTTP.
+`graph/` exports pure functions (`findRoute`, `toCarPlan`, `haversineKm`). Routes only validate,
+call, and shape. All algorithm tests run without HTTP.
 
-### 4. Determinism
+### 7. Determinism
 
-Presentations must be reproducible:
+Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
+same route and same cars, every presentation.
 
-- Topology is hard-coded (`graph/topology.ts`), not random.
-- Node positions come from the server so every client draws the same picture.
-- BFS sorts each node's neighbors by ID, so output does not depend on link array order
-  (tested).
+### 8. One timeline, two renderers
 
-Default network:
+`sim/timeline.ts` turns `(visitOrder, linkPath, cars, speed)` into timed events. Both
+`scene3d/` and `view2d/` render from it, so the views can never disagree, and timing is
+unit-testable without WebGL.
+
+### 9. 3D rendering rules
+
+- React Three Fiber + drei. Scene state comes from React; **per-frame motion does not.**
+  `<Cars>` uses `useFrame` + refs to update instanced matrices. Never `setState` per frame.
+- Ground: Natural Earth (public domain) CA/OR/WA outlines, simplified with mapshaper, committed
+  as `westcoast.json`, extruded flat. Equirectangular projection; distortion is negligible at
+  this scale.
+- Models: primitives first; Kenney Car/City kits (CC0) swapped in behind the same components.
+  Sources recorded in `apps/web/ASSETS.md`.
+
+### 10. 2D fallback
+
+SVG view stays. It is the default when WebGL is unavailable or `prefers-reduced-motion` is set,
+the keyboard/screen-reader path for toggling failures, and the Playwright E2E target.
+
+## Simulation state machine
 
 ```
-           r1 ── r3 ── r6
-         ╱    ╲      ╱    ╲
-  client       r4 ──       server
-         ╲    ╱    ╲      ╱
-           r2 ── r5 ── r7
+idle ──Submit──► packetizing ──ok──► loaded
+loaded ──Send──► routing ──routed──► searching ──► driving ──► delivered
+                    └──unreachable──► noRoute
+delivered | noRoute ──Submit──► packetizing      any ──Reset──► idle
+packetizing | routing ──API error──► error (keeps cars, Retry)
 ```
 
-| Failure         | Route                          |
-| --------------- | ------------------------------ |
-| none            | client → r1 → r3 → r6 → server |
-| r6 down         | client → r1 → r4 → r7 → server |
-| link r3-r6 down | client → r1 → r4 → r6 → server |
-| r6 + r7 down    | unreachable                    |
-
-### 5. BFS output designed for visualization
-
-The response returns more than the answer, so the frontend can _explain_ the search:
-
-- `visitOrder`: every dequeued node with `parentId`, `viaLinkId`, `depth`. Replay it step by step
-  to show the BFS frontier expanding.
-- `path` / `linkPath`: the chosen route as nodes and links, for highlighting and for packet
-  animation.
-- `packets`: message split into 16-character chunks (by code point, emoji-safe). Each is one
-  animated "car".
+Failure toggles are enabled only in `idle`, `loaded`, `delivered`, `noRoute`. Mid-drive
+rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
 
 ## API contract
 
-Base path `/api`. All bodies JSON. Source of truth: `packages/shared/src/schemas.ts`.
+Base path `/api`. JSON bodies. Source of truth: `packages/shared/src/schemas.ts`.
 
 ### `GET /api/health`
 
@@ -144,105 +160,126 @@ Base path `/api`. All bodies JSON. Source of truth: `packages/shared/src/schemas
 { "status": "ok", "uptimeSeconds": 42, "version": "0.1.0" }
 ```
 
-Used by Render `healthCheckPath`.
-
 ### `GET /api/network`
 
-Returns `Network`: `{ nodes, links, clientId, serverId }`. Node:
-`{ id, label, kind: "client"|"router"|"server", x, y }` (positions in a 1000×600 viewBox).
-Link: `{ id, source, target }` (undirected).
-
-### `POST /api/route`
-
-Request:
-
-```json
-{ "message": "Hello", "disabledNodeIds": ["r6"], "disabledLinkIds": [] }
+```ts
+{ nodes: { id, label, kind: 'client'|'server'|'router', lat, lon, place }[],
+  links: { id, source, target, distanceKm }[],
+  clientId, serverId }
 ```
 
-Response `200`:
+### `POST /api/packetize` — Submit
+
+```jsonc
+{ "source": "file", "fileName": "essay.pdf", "sizeBytes": 1048576 }
+// or
+{ "source": "message", "message": "Hello Oregon" }
+```
+
+```json
+{
+  "totalBytes": 1048576,
+  "packetSizeBytes": 1500,
+  "packetCount": 700,
+  "cars": [{ "id": "car-0", "seq": 0, "firstPacket": 0, "lastPacket": 29, "bytes": 45000 }]
+}
+```
+
+`carCount = min(packetCount, 24)`; packets spread evenly; car `bytes` sum to `totalBytes`.
+
+### `POST /api/route` — Send
+
+```json
+{ "fromNodeId": "csulb", "disabledNodeIds": ["sacramento"], "disabledLinkIds": [] }
+```
 
 ```json
 {
   "status": "routed",
-  "visitOrder": [{ "nodeId": "client", "parentId": null, "viaLinkId": null, "depth": 0 }, "..."],
-  "path": ["client", "r1", "r4", "r7", "server"],
-  "linkPath": ["client-r1", "r1-r4", "r4-r7", "r7-server"],
-  "packets": [{ "id": "pkt-0", "seq": 0, "payload": "Hello" }]
+  "visitOrder": [{ "nodeId": "csulb", "parentId": null, "viaLinkId": null, "depth": 0 }],
+  "path": ["csulb", "..."],
+  "linkPath": ["..."]
 }
 ```
 
-`status: "unreachable"` is still `200` (it is a valid simulation outcome, not an error), with
-empty `path`, `linkPath`, `packets`, and the full `visitOrder` of what BFS could reach.
+`fromNodeId` optional (defaults to client). `status: "unreachable"` is a `200` with empty
+`path`/`linkPath` and the full `visitOrder`.
 
 ### Errors
 
-Every error has the same shape:
-
 ```json
-{ "error": { "code": "VALIDATION_ERROR", "message": "body/message must be string" } }
+{ "error": { "code": "VALIDATION_ERROR", "message": "body/sizeBytes must be <= 1073741824" } }
 ```
 
-| Status | Code               | When                                           |
-| ------ | ------------------ | ---------------------------------------------- |
-| 400    | `VALIDATION_ERROR` | Schema violation (type, length, extra fields)  |
-| 400    | `UNKNOWN_ID`       | Disabled ID not in topology                    |
-| 404    | `NOT_FOUND`        | Unknown route                                  |
-| 500    | `INTERNAL_ERROR`   | Unhandled error (details logged, not returned) |
+| Status | Code               | When                                          |
+| ------ | ------------------ | --------------------------------------------- |
+| 400    | `VALIDATION_ERROR` | Schema violation (type, length, extra fields) |
+| 400    | `UNKNOWN_ID`       | Node/link ID not in topology                  |
+| 404    | `NOT_FOUND`        | Unknown route                                 |
+| 500    | `INTERNAL_ERROR`   | Unhandled error (logged, not returned)        |
 
-### Limits (`packages/shared/src/limits.ts`)
+### Limits
 
-| Limit                 | Value  |
-| --------------------- | ------ |
-| Message length        | 1–140  |
-| Packet payload        | 16     |
-| Disabled IDs per list | 64     |
-| ID length             | 32     |
-| Request body          | 16 KiB |
-
-Validation is strict: unknown fields are rejected, types are not coerced.
+| Limit                 | Value       |
+| --------------------- | ----------- |
+| Message               | 1–140 chars |
+| File name             | 1–255 chars |
+| File size (declared)  | 1 B – 1 GiB |
+| Packet size           | 1,500 B     |
+| Max cars per transfer | 24          |
+| Disabled IDs per list | 64          |
+| Request body          | 16 KiB      |
 
 ## Configuration
 
-| Var            | App    | Default                 | Notes                                                |
-| -------------- | ------ | ----------------------- | ---------------------------------------------------- |
-| `PORT`         | server | `3001`                  | Render sets it                                       |
-| `HOST`         | server | `0.0.0.0`               |                                                      |
-| `CORS_ORIGIN`  | server | `http://localhost:5173` | Comma-separated allowed origins                      |
-| `LOG_LEVEL`    | server | `info`                  | Pino level                                           |
-| `VITE_API_URL` | web    | empty                   | Empty in dev (Vite proxies `/api`). Build-time only. |
+| Var            | App    | Default                 | Notes                                  |
+| -------------- | ------ | ----------------------- | -------------------------------------- |
+| `PORT`         | server | `3001`                  | Render sets it                         |
+| `HOST`         | server | `0.0.0.0`               |                                        |
+| `CORS_ORIGIN`  | server | `http://localhost:5173` | Comma-separated allowed origins        |
+| `LOG_LEVEL`    | server | `info`                  | Pino level                             |
+| `VITE_API_URL` | web    | empty                   | Empty in dev (Vite proxy). Build-time. |
 
-No secrets exist in this project.
+No secrets.
 
 ## Deployment (Render)
 
-`render.yaml` creates two services:
+`render.yaml` defines `netsim-api` (Node, region **oregon**, health check `/api/health`) and
+`netsim-web` (static site, SPA rewrite). After creating the Blueprint:
 
-- **netsim-api** — Node web service, health check `/api/health`.
-- **netsim-web** — static site from `apps/web/dist`, SPA rewrite to `index.html`.
+1. `netsim-web` → `VITE_API_URL` = API URL, redeploy (build-time variable).
+2. `netsim-api` → `CORS_ORIGIN` = static site URL.
 
-Dashboard steps after "New → Blueprint":
-
-1. Set `VITE_API_URL` on `netsim-web` to the API URL. Trigger a redeploy (baked in at build time).
-2. Set `CORS_ORIGIN` on `netsim-api` to the static site URL.
-
-Free API instances sleep after inactivity; first request after sleep can take ~30–60 s. Open the
-app a minute before presenting.
+Free API instances sleep when idle; first request can take ~30–60 s. Warm up before presenting.
 
 ## Testing
 
-- `apps/server/src/graph/bfs.test.ts` — shortest path, visit order, disabled router, disabled
-  link, unreachable, disabled destination, determinism.
-- `apps/server/src/app.test.ts` — endpoints via `app.inject()` (no port), validation and error
-  shapes.
-- Not yet: frontend component tests, Playwright E2E.
+| Layer      | Tool                       | Covers                                                                |
+| ---------- | -------------------------- | --------------------------------------------------------------------- |
+| Algorithms | Vitest                     | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
+| API        | Vitest + `inject()`        | Endpoints, validation, error codes                                    |
+| Sim        | Vitest                     | Reducer transitions, locked toggles, timeline ordering                |
+| UI         | Vitest + Testing Library   | Panels, 2D keyboard toggles                                           |
+| E2E        | Playwright (2D view)       | Submit → Send → delivered; break → reroute; cut all → no route; reset |
+| 3D         | Manual checklist + 1 smoke | Canvas mounts and is non-blank (no WebGL pixel diffs)                 |
 
-## Extension points
+## Implementation status
 
-| Feature             | Where                                                                 |
-| ------------------- | --------------------------------------------------------------------- |
-| BFS step replay     | Frontend: iterate `visitOrder` on a timer, color nodes by step        |
-| Packet animation    | Frontend: interpolate along `linkPath` coordinates per packet         |
-| Playback controls   | Frontend state machine: idle → searching → transmitting → done        |
-| Other algorithms    | Add `graph/dijkstra.ts` etc.; add `algorithm` field to `RouteRequest` |
-| Multiple topologies | `GET /api/networks`, `networkId` in request; keep topologies in code  |
+| Area                                   | Status                                   |
+| -------------------------------------- | ---------------------------------------- |
+| Monorepo, CI, Render blueprint         | Done                                     |
+| Shared contract, error handling        | Done (v1: x/y nodes, `message` on route) |
+| BFS + tests                            | Done on 9-node demo graph                |
+| 2D SVG view, send/reset, toggles       | Done (foundation)                        |
+| West Coast topology, lat/lon, distance | To do                                    |
+| `/packetize`, `fromNodeId`             | To do                                    |
+| `sim/` reducer + timeline              | To do                                    |
+| 3D scene, cars, camera                 | To do                                    |
+| Component + E2E tests                  | To do                                    |
+
+## Stretch goals
+
+1. Live mid-drive reroute + packet loss.
+2. Dijkstra by `distanceKm`; BFS vs Dijkstra comparison.
+3. Guided demo mode.
+4. Follow-car camera polish, day/night lighting.
