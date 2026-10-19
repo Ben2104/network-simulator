@@ -1,0 +1,151 @@
+:root {
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --ok: #4ade80;
+  --danger: #f87171;
+  --link: #475569;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+.app {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: grid;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.75rem;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.controls input {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--link);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+button {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--link);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.status {
+  margin: 0;
+}
+.status.ok {
+  color: var(--ok);
+}
+.status.error {
+  color: var(--danger);
+}
+
+.graph {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.link line {
+  stroke: var(--link);
+  stroke-width: 4;
+}
+.link .hit {
+  stroke: transparent;
+  stroke-width: 20;
+  cursor: pointer;
+}
+.link.on-path line:not(.hit) {
+  stroke: var(--ok);
+  stroke-width: 6;
+}
+.link.disabled line:not(.hit) {
+  stroke: var(--danger);
+  stroke-dasharray: 8 8;
+}
+
+.node circle {
+  fill: var(--panel);
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.node.client circle,
+.node.server circle {
+  fill: var(--accent);
+}
+.node.router {
+  cursor: pointer;
+}
+.node.visited circle {
+  stroke: var(--ok);
+}
+.node.disabled circle {
+  stroke: var(--danger);
+  fill: #450a0a;
+}
+.node text {
+  fill: var(--text);
+  font-size: 18px;
+}
+.node:focus-visible circle {
+  stroke-width: 6;
+}
