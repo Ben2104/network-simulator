@@ -6,20 +6,20 @@
   --color-border: #d5e5d9;
   --color-text: #0f1f17;
   --color-text-muted: #4a5d51;
-  --color-primary: #15803d;
+  --color-primary: #157f3d;
   --color-primary-hover: #166534;
   --color-primary-soft: #dcfce7;
   --color-on-primary: #ffffff;
   --color-explore: #0369a1;
   --color-explore-soft: #e0f2fe;
-  --color-route: #d97706;
+  --color-route: #d47406;
   --color-route-text: #92400e;
   --color-route-soft: #fef3c7;
   --color-danger: #dc2626;
   --color-danger-text: #991b1b;
   --color-danger-soft: #fee2e2;
   --color-map-ground: #eef5ef;
-  --color-focus: #15803d;
+  --color-focus: #157f3d;
   font-family:
     Inter,
     system-ui,
