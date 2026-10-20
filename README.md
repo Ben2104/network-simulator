@@ -7,7 +7,10 @@ or roads and send again to watch it reroute.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
 > illustrative, not real ISP topology. The app does not inspect, control, or route real network
-> traffic. File contents never leave your browser — only name and size are sent.
+> traffic. By default file contents never leave your browser — only name and size are sent. If you
+> tick the opt-in checkbox, the bytes (≤ 10 MB) are streamed to our Oregon server, hashed, and
+> immediately deleted — never stored. Real bytes take whatever internet path ISPs choose; the cars
+> show an illustrative BFS route.
 
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
 shared TypeBox contract · npm workspaces · Render.
@@ -75,14 +78,15 @@ contract, error codes, limits, config, and deployment details. Summary:
 
 ### API at a glance
 
-| Method | Path             | Purpose                                                                                                |
-| ------ | ---------------- | ------------------------------------------------------------------------------------------------------ |
-| GET    | `/api/health`    | Liveness for Render                                                                                    |
-| GET    | `/api/network`   | Stations/lots (lat/lon), roads (`distanceKm`), client/server IDs                                       |
-| POST   | `/api/packetize` | Submit: `{ source: "file", fileName, sizeBytes }` or `{ source: "message", message }` → packets + cars |
-| POST   | `/api/route`     | Send: `{ fromNodeId?, disabledNodeIds, disabledLinkIds }` → `visitOrder`, `path`, `linkPath`           |
+| Method | Path             | Purpose                                                                                                                      |
+| ------ | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/health`    | Liveness for Render                                                                                                          |
+| GET    | `/api/network`   | Stations/lots (lat/lon), roads (`distanceKm`), client/server IDs                                                             |
+| POST   | `/api/packetize` | Submit: `{ source: "file", fileName, sizeBytes }` or `{ source: "message", message }` → packets + cars                       |
+| POST   | `/api/route`     | Send: `{ fromNodeId?, disabledNodeIds, disabledLinkIds }` → `visitOrder`, `path`, `linkPath`                                 |
+| POST   | `/api/upload`    | Opt-in real upload: raw bytes (≤ 10 MB, streamed) → `bytesReceived`, `sha256`, `receivedAt`, `region`; hashed then discarded |
 
-Errors: `{ "error": { "code", "message" } }`.
+Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RATE_LIMITED` 429).
 
 ## Deployment
 

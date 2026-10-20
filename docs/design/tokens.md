@@ -87,26 +87,26 @@ conveyed by fill + lock icon + text, not by low contrast.
 
 File: https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator
 
-| Item                                        | Node ID | Link                                                                                |
-| ------------------------------------------- | ------- | ----------------------------------------------------------------------------------- |
-| Page `v2 Light`                             | `4:827` | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-827 |
-| Frame `v2 · Broken Station (between sends)` | `4:31`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-31  |
-| Frame `v2 · Driving`                        | `4:390` | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-390 |
-| Variable collection `Color`                 | `4:2`   | (Local variables panel)                                                             |
-| Component `Header` (shared)                 | `5:2`   | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-2   |
-| Component `File card` (shared)              | `5:34`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-34  |
-| Component `Map legend` (shared)             | `5:51`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-51  |
-| Map, Broken frame                           | `8:2`   | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=8-2   |
-| Map, Driving frame                          | `8:152` | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=8-152 |
+| Item                                               | Node ID  | Link                                                                                 |
+| -------------------------------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| Page `v2 Light`                                    | `4:827`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-827  |
+| Frame `v2 · Rerouted (delivered, Oakland offline)` | `4:31`   | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-31   |
+| Frame `v2 · Driving`                               | `4:390`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=4-390  |
+| Variable collection `Color`                        | `4:2`    | (Local variables panel)                                                              |
+| Component `Header` (shared)                        | `5:2`    | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-2    |
+| Component `File card` (shared)                     | `5:34`   | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-34   |
+| Component `Map legend` (shared)                    | `5:51`   | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=5-51   |
+| Map, Rerouted frame                                | `12:152` | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=12-152 |
+| Map, Driving frame                                 | `8:152`  | https://www.figma.com/design/u4ACay8xnM4DS6dyovzf47/network-simulator?node-id=8-152  |
 
 Page 1 (`0:1`, dark Stitch originals `1:2` and `1:361`) is untouched.
 
 Both frames are 1280×960. Layout: header 64 px, state banner 44 px, map 864×804 (left), right column
 384 px (File card → Send & Playback → Route (BFS) → Network Status), status bar 48 px. Network Status
-ends at y=858 (Driving) / y=888 (Broken), above the 912 px status bar and the fold.
+ends at y=846 in both frames, above the 912 px status bar and the fold.
 
 Audit (scripted): 0 unbound solid fills or strokes in both frames and the 3 shared components.
-Fonts used: Inter (Regular, Medium, Semi Bold), JetBrains Mono Regular.
+Fonts used: Inter (Regular, Medium, Semi Bold); JetBrains Mono Regular only for the File card byte count.
 
 ## 4. What changed per frame (spec §3 corrections)
 
@@ -120,19 +120,24 @@ Both frames:
 - #10 One shared `Header`, `File card` and `Map legend` (component instances in both frames).
   "Illustrative network — not real internet routing" label kept in the header.
 - #3 FIFO "Queue (FIFO, in visit order)" chips replace "Priority Queue" and Q1/Q2 badges.
-  Chips are real BFS visit order (neighbours sorted by ID, as in the plan-1 tests).
+  Chips are real BFS visit order (neighbours sorted by ID, as in the plan-1 tests), shown as Inter place labels (first 6 + "+N more"). Route chips keep the step number.
 - #4 "9 hops" badge plus "BFS = fewest hops, not shortest distance."
 - #5 Destination is "US-West Data Center, Oregon" (parking lot). Sender is "CSULB parking lot".
 - #6 Real topology from `docs/architecture.md` (19 stations, 24 roads), no invented route.
 - Every state uses icon + text: Offline (x icon), Online (check icon), Locked (lock icon).
 
-`v2 · Broken Station (between sends)` (`4:31`):
+`v2 · Rerouted (delivered, Oakland offline)` (`4:31`, renamed from "Broken Station (between sends)"):
 
-- #1 Between-sends state: 24 cars parked in the CSULB lot, destination lot empty, no halted cars.
-- Oakland offline (x icon, "Oakland — offline" label, dashed `danger` roads). BFS recomputed:
+- #1 After-send state (BFS runs only on Send): 24 cars parked at the Oregon destination lot, CSULB
+  lot empty, no halted cars. Banner (success, check icon): "Delivered via 9 hops, avoiding offline
+  Oakland". Footer: "Delivered · 24 / 24 cars at US-West Data Center, Oregon".
+- Oakland stays offline (x icon, "Oakland — offline" label, dashed `danger` roads). Route:
   `csulb → lb-isp → la-wilshire → bakersfield → fresno → sacramento → reno → klamath-falls → bend →
-oregon-dc` (9 hops). Banner says so in text.
-- Failure switches enabled, hint "Toggle failures only between sends."; Send enabled, Pause/Reset disabled.
+oregon-dc` (9 hops).
+- All 18 reachable stations are drawn in the BFS-visited style (explore ring), so the shared legend
+  entry "Visited by BFS" is truthful here.
+- Failure switches enabled, hint "Toggle failures, then Send again". "Send again" primary; Pause
+  disabled (nothing playing: disabled fill, muted text, 70 % opacity); Reset enabled.
 
 `v2 · Driving` (`4:390`):
 
@@ -149,7 +154,6 @@ oregon-dc` (9 hops). Banner says so in text.
   point. The compass shows the rotated north. The "Illustrative network" label covers this.
 - Los Angeles cluster (Long Beach ISP, Riverside, One Wilshire, CSULB lot) is still dense. Labels do
   not overlap each other but a few sit over road lines.
-- Queue chips show the first 8 stations plus "+N more"; the full 19/18-station order is not drawn.
-- Legend swatches are shared, so "Visited by BFS" appears in the Broken frame where nothing is visited.
+- Queue chips show the first 6 stations plus "+N more"; the full 19/18-station order is not drawn.
 - 2D view, idle, loaded, searching, delivered, no route, error and mobile states are not drawn
   (separate issue).

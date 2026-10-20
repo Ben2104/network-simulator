@@ -2,7 +2,8 @@
 
 > Educational simulation. Stations are nodes in an in-memory graph. Nothing here inspects,
 > controls, or routes real network traffic. The West Coast network is illustrative, not real ISP
-> topology.
+> topology. File contents leave the browser only if you opt in to the real upload; the server
+> hashes the bytes and discards them.
 
 Full design rationale: [`superpowers/specs/2026-10-19-3d-packet-highway-design.md`](superpowers/specs/2026-10-19-3d-packet-highway-design.md).
 
@@ -84,11 +85,16 @@ packet plan (from Submit), the failure sets, and playback state.
 - **Send** (`/route`) runs BFS against the failure set _at send time_. Submit once, break things,
   send, and the route reflects the current network.
 
-### 3. Files are simulated
+### 3. Files are simulated by default; real upload is opt-in
 
-Only `fileName` and `sizeBytes` leave the browser. File contents are never uploaded. Real packets
-are ~1,500 bytes, so 1 MB ≈ 700 packets; cars are capped at 24 and each carries a range of
-packets. No upload handling, no privacy exposure, deterministic output.
+By default only `fileName` and `sizeBytes` leave the browser. Real packets are ~1,500 bytes, so
+1 MB ≈ 700 packets; cars are capped at 24 and each carries a range of packets.
+
+If the user ticks the (default-off) checkbox, Send also streams the bytes (≤ 10 MB) to
+`POST /api/upload`. The server feeds them to an incremental SHA-256 and a byte counter, then
+discards them: no disk, no database, no logging of contents or file name. The browser compares the
+returned hash with its own. The upload never blocks or fails the simulation. Real bytes take
+whatever internet path ISPs choose; the cars show an illustrative BFS route.
 
 ### 4. BFS on a geographic map
 
@@ -272,30 +278,51 @@ Base path `/api`. JSON bodies. Source of truth: `packages/shared/src/schemas.ts`
 `fromNodeId` optional (defaults to client). `status: "unreachable"` is a `200` with empty
 `path`/`linkPath` and the full `visitOrder`.
 
+### `POST /api/upload` — opt-in real upload
+
+Request: `Content-Type: application/octet-stream`, raw bytes streamed (never buffered); optional
+`X-File-Name` header (display only, never logged or stored).
+
+```json
+{
+  "bytesReceived": 1048576,
+  "sha256": "<64 hex chars>",
+  "receivedAt": "2026-10-20T12:00:00.000Z",
+  "region": "oregon"
+}
+```
+
+Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
+
 ### Errors
 
 ```json
 { "error": { "code": "VALIDATION_ERROR", "message": "body/sizeBytes must be <= 1073741824" } }
 ```
 
-| Status | Code               | When                                          |
-| ------ | ------------------ | --------------------------------------------- |
-| 400    | `VALIDATION_ERROR` | Schema violation (type, length, extra fields) |
-| 400    | `UNKNOWN_ID`       | Node/link ID not in topology                  |
-| 404    | `NOT_FOUND`        | Unknown route                                 |
-| 500    | `INTERNAL_ERROR`   | Unhandled error (logged, not returned)        |
+| Status | Code                | When                                          |
+| ------ | ------------------- | --------------------------------------------- |
+| 400    | `VALIDATION_ERROR`  | Schema violation (type, length, extra fields) |
+| 400    | `UNKNOWN_ID`        | Node/link ID not in topology                  |
+| 400    | `VALIDATION_ERROR`  | `/upload` with an empty body                  |
+| 404    | `NOT_FOUND`         | Unknown route                                 |
+| 413    | `PAYLOAD_TOO_LARGE` | `/upload` body over 10 MB                     |
+| 429    | `RATE_LIMITED`      | `/upload` over ~10 per minute per IP          |
+| 500    | `INTERNAL_ERROR`    | Unhandled error (logged, not returned)        |
 
 ### Limits
 
-| Limit                 | Value       |
-| --------------------- | ----------- |
-| Message               | 1–140 chars |
-| File name             | 1–255 chars |
-| File size (declared)  | 1 B – 1 GiB |
-| Packet size           | 1,500 B     |
-| Max cars per transfer | 24          |
-| Disabled IDs per list | 64          |
-| Request body          | 16 KiB      |
+| Limit                 | Value        |
+| --------------------- | ------------ |
+| Message               | 1–140 chars  |
+| File name             | 1–255 chars  |
+| File size (declared)  | 1 B – 1 GiB  |
+| Packet size           | 1,500 B      |
+| Max cars per transfer | 24           |
+| Disabled IDs per list | 64           |
+| Request body (JSON)   | 16 KiB       |
+| Upload body           | 10,000,000 B |
+| Uploads per IP        | ~10 / min    |
 
 ## Configuration
 

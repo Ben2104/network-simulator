@@ -9,13 +9,13 @@
 
 | Assignee             | Issues | By milestone                  |
 | -------------------- | ------ | ----------------------------- |
-| `haohnguyen94-droid` | 4      | W1: 4 · W2: 0 · W3: 0 · W4: 0 |
-| `doubleeyetwo`       | 5      | W1: 3 · W2: 0 · W3: 2 · W4: 0 |
+| `haohnguyen94-droid` | 5      | W1: 4 · W2: 1 · W3: 0 · W4: 0 |
+| `doubleeyetwo`       | 6      | W1: 3 · W2: 1 · W3: 2 · W4: 0 |
 | `BlakeJG`            | 4      | W1: 2 · W2: 2 · W3: 0 · W4: 0 |
-| `ple0309`            | 3      | W1: 1 · W2: 2 · W3: 0 · W4: 0 |
+| `ple0309`            | 3      | W1: 0 · W2: 2 · W3: 1 · W4: 0 |
 | `CohenK`             | 5      | W1: 0 · W2: 2 · W3: 3 · W4: 0 |
-| `Ben2104`            | 4      | W1: 1 · W2: 0 · W3: 2 · W4: 1 |
-| **Total**            | **25** |                               |
+| `Ben2104`            | 7      | W1: 2 · W2: 0 · W3: 4 · W4: 1 |
+| **Total**            | **30** |                               |
 
 ## Labels
 
@@ -36,6 +36,7 @@
 | `area:design`   | `#F9D0C4` | Figma and design tokens                                  |
 | `user-story`    | `#BFD4F2` | Written as a user story with acceptance criteria         |
 | `figma-v2`      | `#C5DEF5` | Tracks the Figma v2 Light mockups                        |
+| `privacy`       | `#D93F0B` | Touches user data: file upload or geolocation            |
 
 Existing default labels (`good first issue`, `bug`, `accessibility`) are reused, not recreated.
 
@@ -51,6 +52,8 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 | W4    | 2026-11-15 | W4: bug fixes and demo rehearsal only. No new features.                             |
 
 ## Dependency order
+
+_Added 2026-10-20: W2 upload endpoint (`haohnguyen94-droid`) and its tests (`doubleeyetwo`) come first; W3 client upload and Render checks (`Ben2104`) and geolocation start (`ple0309`) consume it._
 
 1. W1: contract first (Contract v2 → Topology → BFS → Route v2/freeze) with Packetize in parallel; the sim reducer (`BlakeJG`) runs alongside, then the web Submit → Send wiring (`BlakeJG`, needs the reducer, Route v2 and Packetize) and branch protection.
 2. W2: sim timeline and hook, UI panels, 3D scaffold — all consume the frozen contract and mock responses.
@@ -184,6 +187,13 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 - `docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md` (Task 2)
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §3 and §5
 
+### Update 2026-10-20
+
+The geolocation start snaps to the nearest station in the browser, so `haversineKm` must be importable by the web app. Plan 1 currently puts it in `apps/server/src/graph/geo.ts`.
+
+- [ ] Implement it in `packages/shared` (pure, no Node APIs) and re-export; the server imports it from there
+- [ ] Tests move with it
+
 #### 6. Packetization math: toCarPlan()
 
 - **Assignee:** `doubleeyetwo`
@@ -259,7 +269,7 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 #### 9. Design remaining states in Figma v2
 
-- **Assignee:** `ple0309`
+- **Assignee:** `Ben2104`
 - **Labels:** `figma-v2`, `area:design`, `plan-3`, `user-story`
 - **Milestone:** W1
 
@@ -281,6 +291,15 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 - `docs/superpowers/specs/2026-10-20-light-theme-team-kickoff-design.md` §2–§3
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4 (Layout)
+
+### Update 2026-10-20
+
+Decisions: opt-in real upload to Oregon and geolocation start (see spec Q11, Q12). Add to the remaining states:
+
+- [ ] Your File card: opt-in upload checkbox (default off) with the label "Really upload to our Oregon server (hashed, then deleted — never stored)"; disabled state "Too large for real upload (10 MB max); simulated only"
+- [ ] Delivered badges: "Verified in Oregon ✓ — hash match (sha256 abc123…)", "Hash mismatch", "Upload failed — simulation only" (icon + text, never color only)
+- [ ] "Start from my location" button, "Start from…" station picker, permission-denied recovery hint, and "You're outside the West Coast network — starting at CSULB" notice
+- [ ] Cars shown parked at a non-CSULB start station
 
 #### 10. Web: Submit → Send flow against the v2 API
 
@@ -383,6 +402,12 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4
 - `docs/architecture.md` (3D rendering rules)
 
+### Update 2026-10-20
+
+Geolocation start (spec Q12): the hook accepts a `startNodeId` (default `clientId`) and passes it as `fromNodeId` to `/api/route`.
+
+- [ ] `startNodeId` supported and tested; resetting cars on re-send uses the same start
+
 #### 14. UI: FilePanel, SendBar, StatusBanner and ViewToggle
 
 - **Assignee:** `ple0309`
@@ -409,6 +434,13 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4 (Layout)
 - `docs/superpowers/specs/2026-10-20-light-theme-team-kickoff-design.md` §2
+
+### Update 2026-10-20
+
+Scope added (spec Q11, §4 Real upload): the Your File card gets the opt-in checkbox (default OFF) "Really upload to our Oregon server (hashed, then deleted — never stored)", disabled above 10 MB with "Too large for real upload (10 MB max); simulated only". StatusBanner/delivered view shows the verified / mismatch / failed badge from the upload sub-state (logic in the new client-upload issue). Checkbox + badges follow Figma v2 (#9).
+
+- [ ] Opt-in checkbox, disabled state and hint text implemented
+- [ ] Verified / mismatch / failed badges implemented with icon + text
 
 #### 15. UI: BfsPanel, NetworkStatus, Legend and 2D view upgrade
 
@@ -564,6 +596,12 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4
 - `docs/architecture.md` (3D rendering rules)
 
+### Update 2026-10-20
+
+Geolocation start (spec Q12): cars park at the chosen start station, not always the CSULB lot. Parking position for the start must come from `startNodeId` in simulation state; the CSULB lot stays the default.
+
+- [ ] Cars spawn at the selected start station and the search begins there
+
 #### 21. 3D: camera rig, follow-lead-car and WebGL fallback
 
 - **Assignee:** `CohenK`
@@ -683,3 +721,153 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 - `docs/architecture.md` (Demo routes)
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §7
+
+### Update 2026-10-20
+
+The demo script and runbook must include the upload privacy note: uploads are opt-in (default off), bytes are hashed in Oregon and deleted, never stored; real bytes take whatever internet path ISPs choose and the cars show an illustrative BFS route. Add:
+
+- [ ] Demo step with the upload checkbox ticked: "Verified in Oregon ✓" shown at delivery
+- [ ] Demo step for "Start from my location" and the "outside network → CSULB" fallback
+- [ ] Pre-flight: use a small file; mention the 10 MB limit and the 10/min rate limit
+
+## Added 2026-10-20: real upload to Oregon and geolocation start
+
+Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issue numbers are assigned by GitHub when `create-issues.sh` runs; dependencies below cite titles (numbers added on the GitHub issues). Existing issues #5, #9, #13, #14, #20 and #25 gained an "Update 2026-10-20" section above; #18, #19 and #23 get a comment (see `create-issues.sh` footer notes).
+
+#### POST /api/upload: streaming SHA-256, limits and rate limit
+
+- **Assignee:** `haohnguyen94-droid`
+- **Labels:** `plan-1`, `area:backend`, `user-story`, `privacy`
+- **Milestone:** W2
+
+**User story:** As a student who chooses to upload, I want the server to prove it received my exact bytes without keeping them, so that I can trust the "Verified in Oregon" result.
+
+**Acceptance criteria**
+
+- [ ] `POST /api/upload` accepts `application/octet-stream` as a stream (custom content-type parser returning the raw stream); the body is never buffered in memory
+- [ ] Bytes feed an incremental SHA-256 (`node:crypto`) and a byte counter, then are discarded: no disk, no database, no logging of contents or of `X-File-Name`
+- [ ] 200 returns `{ bytesReceived, sha256, receivedAt (ISO), region: "oregon" }`; schema and `MAX_UPLOAD_BYTES` (10 MB = 10,000,000 B) added to `packages/shared`
+- [ ] Over 10 MB returns 413 `PAYLOAD_TOO_LARGE`, enforced by counting streamed bytes and aborting (not only by `Content-Length`/`bodyLimit`, which a stream parser may bypass)
+- [ ] `@fastify/rate-limit` ~10 uploads/min/IP returns 429 `RATE_LIMITED`; empty body returns 400 `VALIDATION_ERROR`; all errors use `{ error: { code, message } }`
+- [ ] CORS config same as other routes and allows the `X-File-Name` request header; `npm run check` passes
+
+**Depends on**
+
+- Contract v2: shared schemas, limits and map projection (#1)
+- POST /api/route v2 (fromNodeId) and contract freeze with mock responses (#4)
+
+**References**
+
+- `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §3 (Upload) and Q11
+- `docs/architecture.md` (POST /api/upload, Errors, Limits)
+
+#### Upload API tests: hash vector, limits, rate limit and memory
+
+- **Assignee:** `doubleeyetwo`
+- **Labels:** `plan-5`, `area:qa`, `area:backend`, `user-story`, `privacy`
+- **Milestone:** W2
+
+**User story:** As a team member, I want automated proof that the upload endpoint hashes correctly, enforces its limits and never buffers the body, so that a 512 MB Render instance stays safe.
+
+**Acceptance criteria**
+
+- [ ] Hash correctness on a known vector: SHA-256 of `abc` is `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`; also a multi-chunk upload equals the same digest
+- [ ] 413 `PAYLOAD_TOO_LARGE` for 10 MB + 1 byte, both with a `Content-Length` and chunked (no length); exactly 10 MB succeeds
+- [ ] 429 `RATE_LIMITED` on the 11th upload within a minute from one IP; empty body gives 400; error shape asserted
+- [ ] Memory check: stream a 10 MB body in small chunks and assert heap/RSS growth stays far below the body size (threshold agreed in the PR)
+- [ ] Test confirms no log line contains the file name or body (capture the logger output)
+
+**Depends on**
+
+- POST /api/upload: streaming SHA-256, limits and rate limit
+- Haversine distance helper (#5) as a first-PR warm-up if new to `inject()` tests
+
+**References**
+
+- `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §5 (API row)
+- `docs/architecture.md` (Limits)
+
+#### Client upload: opt-in, SHA-256 compare and verified states
+
+- **Assignee:** `Ben2104`
+- **Labels:** `plan-2`, `area:sim`, `user-story`, `privacy`
+- **Milestone:** W3
+
+**User story:** As a student, I want an optional real upload that proves my file reached Oregon intact without ever slowing or breaking the simulation, so that the demo can be both a game and a real round trip.
+
+**Acceptance criteria**
+
+- [ ] Typed `upload()` in `apps/web/src/api/client.ts` sends raw bytes (`File`/`Blob` body, UTF-8 bytes for message source) with optional `X-File-Name`
+- [ ] Browser hash via `crypto.subtle.digest("SHA-256")`; hex compared with the server `sha256`
+- [ ] Opt-in flag in simulation state, default off; `canUpload(sizeBytes)` false above 10 MB
+- [ ] On Send, `/api/route` and `/api/upload` start in parallel; upload outcome never blocks, delays or fails the main state machine
+- [ ] Upload sub-state `off | pending | verified | mismatch | failed` covered by reducer tests (incl. server 413/429/network error, and the upload finishing after `delivered`)
+- [ ] No upload happens unless the checkbox is ticked; coordinates and file name are never logged client-side
+
+**Depends on**
+
+- POST /api/upload: streaming SHA-256, limits and rate limit
+- sim: state types and useSimulation reducer (#8)
+- sim: useSimulation hook with playback controls (#13)
+
+**References**
+
+- `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4 (Real upload)
+- `docs/architecture.md` (decision 3)
+
+#### Start from my location: geolocation, station picker and snapping
+
+- **Assignee:** `ple0309`
+- **Labels:** `plan-3`, `area:frontend`, `figma-v2`, `user-story`, `privacy`
+- **Milestone:** W3
+
+**User story:** As a student presenting from anywhere, I want to start the route at the station nearest me, so that the demo feels personal, without my location ever leaving my browser.
+
+**Acceptance criteria**
+
+- [ ] "Start from my location" button; geolocation requested only on click (never on page load) with `enableHighAccuracy: false`, `maximumAge: 600000`, `timeout: 10000`
+- [ ] When `navigator.permissions` is available and the state is `denied`, show a recovery hint instead of silently failing; handle timeout and unavailable
+- [ ] Snap to the nearest station with the shared `haversineKm` (it must be importable from `packages/shared`; see Update on #5); nearest > 300 km shows "You're outside the West Coast network — starting at CSULB" and uses CSULB
+- [ ] Accessible "Start from…" `<select>` listing all stations; keyboard and screen-reader usable; no IP-geolocation fallback
+- [ ] Only `fromNodeId` is sent to `/api/route`; coordinates are never sent, stored or logged
+- [ ] Selected start is passed to `useSimulation` (`startNodeId`) so cars park at that station; default remains the CSULB lot
+- [ ] Matches Figma v2 (button, picker, denied and outside-network states; see Update on #9)
+
+**Depends on**
+
+- Haversine distance helper (#5)
+- POST /api/route v2 (fromNodeId) and contract freeze with mock responses (#4)
+- sim: useSimulation hook with playback controls (#13)
+- UI: FilePanel, SendBar, StatusBanner and ViewToggle (#14)
+- Design remaining states in Figma v2 (#9)
+
+**References**
+
+- `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4 (Start from my location) and Q12
+
+#### DevOps: Render limits for 10 MB uploads, trustProxy and CORS
+
+- **Assignee:** `Ben2104`
+- **Labels:** `plan-6`, `area:devops`, `user-story`, `privacy`
+- **Milestone:** W3
+
+**User story:** As a student presenting, I want uploads to work on the deployed site and rate limits to apply per visitor, so that one noisy user cannot lock out the room.
+
+**Acceptance criteria**
+
+- [ ] Verify a 10 MB upload succeeds end-to-end through the Render proxy on the deployed API, and an 11 MB upload returns 413 `PAYLOAD_TOO_LARGE` (not a proxy error page); record findings in `docs/architecture.md`
+- [ ] Fastify `trustProxy` configured so `@fastify/rate-limit` keys on the real client IP from `X-Forwarded-For`, not the Render proxy IP; verify two different clients do not share one bucket
+- [ ] CORS: `CORS_ORIGIN` includes the static site; preflight for `Content-Type: application/octet-stream` and `X-File-Name` succeeds
+- [ ] Memory watched on the free instance during a 10 MB upload (Render metrics); note result and any need to change plan
+- [ ] Server logs on Render confirmed to contain no file names or contents
+
+**Depends on**
+
+- POST /api/upload: streaming SHA-256, limits and rate limit
+- Deploy to Render (Oregon) and set environment variables (#23)
+
+**References**
+
+- `render.yaml`
+- `docs/architecture.md` (Deployment)
+- `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §3 (Upload)
