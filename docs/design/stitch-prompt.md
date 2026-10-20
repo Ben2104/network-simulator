@@ -5,7 +5,7 @@ the map as a placeholder illustration; the real scene is built in React Three Fi
 
 ```
 Design a web app called "Packet Highway — Network Route Simulator", an educational tool that
-shows how a file travels across a network. Dark theme, modern, presentation-ready, high
+shows how a file travels across a network. Light theme (white + green), modern, presentation-ready, high
 contrast for projectors. Desktop first (1440px) plus a mobile layout (390px).
 
 CONCEPT: A 3D low-poly map of the US West Coast (California, Oregon) seen from a tilted
@@ -35,9 +35,9 @@ MAIN SCREEN LAYOUT (desktop):
 STATES TO DESIGN (separate frames):
 1. Idle: empty map, file card prompting to choose a file.
 2. Loaded: 24 cars parked in the CSULB lot, Send enabled.
-3. Searching: stations lighting up in expanding rings (cyan glow) in BFS order, the BFS card
+3. Searching: stations lighting up in expanding rings (blue glow) in BFS order, the BFS card
    updating.
-4. Driving: chosen route highlighted gold, other roads dimmed, cars in motion along the route.
+4. Driving: chosen route highlighted amber, other roads dimmed, cars in motion along the route.
 5. Delivered: cars parked in the Oregon lot, success banner "Delivered via 9 hops".
 6. Broken station: one station red with a warning icon and crossed-out roads; a tooltip
    "Sacramento — offline. Click to restore."
@@ -49,9 +49,12 @@ STATES TO DESIGN (separate frames):
 MOBILE: map on top (60% height), sidebar cards become a bottom sheet with tabs
 (File / Send / BFS / Network).
 
-VISUAL STYLE: deep navy background (#0b1220), panels slightly lighter with soft borders,
-cyan (#38bdf8) for exploration, gold (#fbbf24) for the chosen route, green (#4ade80) for
-delivered, red (#f87171) for broken. Rounded 12px cards, Inter font, clear labels, generous
-spacing, visible keyboard focus rings, never use color alone (add icons and text).
+VISUAL STYLE: light theme, white page background (#ffffff), cards in pale green (#f5faf6)
+with soft green-gray borders (#d5e5d9), dark green-black text (#0f1f17). Brand green (#15803d)
+for primary buttons and "delivered", always with a check icon; blue (#0369a1) for exploration,
+amber (#d97706, text #92400e) for the chosen route, red (#dc2626, text #991b1b) for broken. Map
+ground is a very light green (#eef5ef). White text only on dark green. Rounded 12px cards,
+Inter font, clear labels, generous spacing, visible 2px green keyboard focus rings, never use
+color alone (add icons and text). Gold is not used.
 Legend in the map corner: parking lot, station, road, car, broken.
 ```
