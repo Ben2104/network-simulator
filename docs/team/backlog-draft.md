@@ -11,8 +11,8 @@
 | -------------------- | ------ | ----------------------------- |
 | `haohnguyen94-droid` | 4      | W1: 4 · W2: 0 · W3: 0 · W4: 0 |
 | `doubleeyetwo`       | 5      | W1: 3 · W2: 0 · W3: 2 · W4: 0 |
-| `BlakeJG`            | 3      | W1: 1 · W2: 2 · W3: 0 · W4: 0 |
-| `ple0309`            | 4      | W1: 2 · W2: 2 · W3: 0 · W4: 0 |
+| `BlakeJG`            | 4      | W1: 2 · W2: 2 · W3: 0 · W4: 0 |
+| `ple0309`            | 3      | W1: 1 · W2: 2 · W3: 0 · W4: 0 |
 | `CohenK`             | 5      | W1: 0 · W2: 2 · W3: 3 · W4: 0 |
 | `Ben2104`            | 4      | W1: 1 · W2: 0 · W3: 2 · W4: 1 |
 | **Total**            | **25** |                               |
@@ -52,7 +52,7 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 ## Dependency order
 
-1. W1: contract first (Contract v2 → Topology → BFS → Route v2/freeze) with Packetize in parallel; web wiring and branch protection alongside.
+1. W1: contract first (Contract v2 → Topology → BFS → Route v2/freeze) with Packetize in parallel; the sim reducer (`BlakeJG`) runs alongside, then the web Submit → Send wiring (`BlakeJG`, needs the reducer, Route v2 and Packetize) and branch protection.
 2. W2: sim timeline and hook, UI panels, 3D scaffold — all consume the frozen contract and mock responses.
 3. W3: 3D cars/camera/assets, E2E, CI, deploy.
 4. W4: bug fixes, demo script rehearsal.
@@ -284,7 +284,7 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 #### 10. Web: Submit → Send flow against the v2 API
 
-- **Assignee:** `ple0309`
+- **Assignee:** `BlakeJG`
 - **Labels:** `plan-1`, `area:frontend`, `user-story`
 - **Milestone:** W1
 
@@ -301,6 +301,7 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 - POST /api/route v2 (fromNodeId) and contract freeze with mock responses
 - POST /api/packetize route and API tests
+- sim: state types and useSimulation reducer
 
 **References**
 

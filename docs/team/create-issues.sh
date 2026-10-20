@@ -242,7 +242,7 @@ issue 'Design remaining states in Figma v2' 'ple0309' 'figma-v2,area:design,plan
 - `docs/superpowers/specs/2026-10-19-3d-packet-highway-design.md` §4 (Layout)
 ISSUE_BODY
 
-issue 'Web: Submit → Send flow against the v2 API' 'ple0309' 'plan-1,area:frontend,user-story' 'W1' <<'ISSUE_BODY'
+issue 'Web: Submit → Send flow against the v2 API' 'BlakeJG' 'plan-1,area:frontend,user-story' 'W1' <<'ISSUE_BODY'
 **User story:** As a student, I want Submit to park my cars and Send to run the route, so that the existing 2D view keeps working on the new backend.
 
 **Acceptance criteria**
@@ -254,6 +254,7 @@ issue 'Web: Submit → Send flow against the v2 API' 'ple0309' 'plan-1,area:fron
 **Depends on**
 - POST /api/route v2 (fromNodeId) and contract freeze with mock responses
 - POST /api/packetize route and API tests
+- sim: state types and useSimulation reducer
 
 **References**
 - `docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md` (Task 5, web files)
