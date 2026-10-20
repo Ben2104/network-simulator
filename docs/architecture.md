@@ -306,23 +306,23 @@ Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
 | 400    | `UNKNOWN_ID`        | Node/link ID not in topology                  |
 | 400    | `VALIDATION_ERROR`  | `/upload` with an empty body                  |
 | 404    | `NOT_FOUND`         | Unknown route                                 |
-| 413    | `PAYLOAD_TOO_LARGE` | `/upload` body over 10 MB                    |
+| 413    | `PAYLOAD_TOO_LARGE` | `/upload` body over 10 MB                     |
 | 429    | `RATE_LIMITED`      | `/upload` over ~10 per minute per IP          |
 | 500    | `INTERNAL_ERROR`    | Unhandled error (logged, not returned)        |
 
 ### Limits
 
-| Limit                 | Value       |
-| --------------------- | ----------- |
-| Message               | 1–140 chars |
-| File name             | 1–255 chars |
-| File size (declared)  | 1 B – 1 GiB |
-| Packet size           | 1,500 B     |
-| Max cars per transfer | 24          |
-| Disabled IDs per list | 64          |
-| Request body (JSON)   | 16 KiB      |
+| Limit                 | Value        |
+| --------------------- | ------------ |
+| Message               | 1–140 chars  |
+| File name             | 1–255 chars  |
+| File size (declared)  | 1 B – 1 GiB  |
+| Packet size           | 1,500 B      |
+| Max cars per transfer | 24           |
+| Disabled IDs per list | 64           |
+| Request body (JSON)   | 16 KiB       |
 | Upload body           | 10,000,000 B |
-| Uploads per IP        | ~10 / min   |
+| Uploads per IP        | ~10 / min    |
 
 ## Configuration
 
