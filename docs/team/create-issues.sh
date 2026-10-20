@@ -605,7 +605,7 @@ issue 'Upload API tests: hash vector, limits, rate limit and memory' 'doubleeyet
 - `docs/architecture.md` (Limits)
 ISSUE_BODY
 
-issue 'Client upload: opt-in, SHA-256 compare and verified states' 'BlakeJG' 'plan-2,area:sim,user-story,privacy' 'W3' <<'ISSUE_BODY'
+issue 'Client upload: opt-in, SHA-256 compare and verified states' 'Ben2104' 'plan-2,area:sim,user-story,privacy' 'W3' <<'ISSUE_BODY'
 **User story:** As a student, I want an optional real upload that proves my file reached Oregon intact without ever slowing or breaking the simulation, so that the demo can be both a game and a real round trip.
 
 **Acceptance criteria**

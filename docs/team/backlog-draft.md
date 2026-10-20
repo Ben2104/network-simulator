@@ -11,10 +11,10 @@
 | -------------------- | ------ | ----------------------------- |
 | `haohnguyen94-droid` | 5      | W1: 4 · W2: 1 · W3: 0 · W4: 0 |
 | `doubleeyetwo`       | 6      | W1: 3 · W2: 1 · W3: 2 · W4: 0 |
-| `BlakeJG`            | 5      | W1: 2 · W2: 2 · W3: 1 · W4: 0 |
+| `BlakeJG`            | 4      | W1: 2 · W2: 2 · W3: 0 · W4: 0 |
 | `ple0309`            | 4      | W1: 1 · W2: 2 · W3: 1 · W4: 0 |
 | `CohenK`             | 5      | W1: 0 · W2: 2 · W3: 3 · W4: 0 |
-| `Ben2104`            | 5      | W1: 1 · W2: 0 · W3: 3 · W4: 1 |
+| `Ben2104`            | 6      | W1: 1 · W2: 0 · W3: 4 · W4: 1 |
 | **Total**            | **30** |                               |
 
 ## Labels
@@ -53,7 +53,7 @@ Due dates are proposed (W1 starts Mon 2026-10-19 per the plan dates); change the
 
 ## Dependency order
 
-_Added 2026-10-20: W2 upload endpoint (`haohnguyen94-droid`) and its tests (`doubleeyetwo`) come first; W3 client upload (`BlakeJG`), geolocation start (`ple0309`) and Render checks (`Ben2104`) consume it._
+_Added 2026-10-20: W2 upload endpoint (`haohnguyen94-droid`) and its tests (`doubleeyetwo`) come first; W3 client upload and Render checks (`Ben2104`) and geolocation start (`ple0309`) consume it._
 
 1. W1: contract first (Contract v2 → Topology → BFS → Route v2/freeze) with Packetize in parallel; the sim reducer (`BlakeJG`) runs alongside, then the web Submit → Send wiring (`BlakeJG`, needs the reducer, Route v2 and Packetize) and branch protection.
 2. W2: sim timeline and hook, UI panels, 3D scaffold — all consume the frozen contract and mock responses.
@@ -789,7 +789,7 @@ Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issu
 
 #### Client upload: opt-in, SHA-256 compare and verified states
 
-- **Assignee:** `BlakeJG`
+- **Assignee:** `Ben2104`
 - **Labels:** `plan-2`, `area:sim`, `user-story`, `privacy`
 - **Milestone:** W3
 
