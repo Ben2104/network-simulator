@@ -1,19 +1,33 @@
 :root {
-  --bg: #0f172a;
-  --panel: #1e293b;
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --accent: #38bdf8;
-  --ok: #4ade80;
-  --danger: #f87171;
-  --link: #475569;
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-surface: #f5faf6;
+  --color-surface-2: #eaf4ec;
+  --color-border: #d5e5d9;
+  --color-text: #0f1f17;
+  --color-text-muted: #4a5d51;
+  --color-primary: #15803d;
+  --color-primary-hover: #166534;
+  --color-primary-soft: #dcfce7;
+  --color-on-primary: #ffffff;
+  --color-explore: #0369a1;
+  --color-explore-soft: #e0f2fe;
+  --color-route: #d97706;
+  --color-route-text: #92400e;
+  --color-route-soft: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-text: #991b1b;
+  --color-danger-soft: #fee2e2;
+  --color-map-ground: #eef5ef;
+  --color-focus: #15803d;
   font-family:
+    Inter,
     system-ui,
     -apple-system,
     'Segoe UI',
     sans-serif;
-  color: var(--text);
-  background: var(--bg);
+  color: var(--color-text);
+  background: var(--color-bg);
 }
 
 * {
@@ -22,7 +36,7 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--color-bg);
 }
 
 .app {
@@ -40,11 +54,12 @@ h1 {
 
 .subtitle {
   margin: 4px 0 0;
-  color: var(--muted);
+  color: var(--color-text-muted);
 }
 
 .panel {
-  background: var(--panel);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
 }
@@ -61,9 +76,9 @@ h1 {
   min-width: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--link);
-  background: var(--bg);
-  color: var(--text);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
   font: inherit;
 }
 
@@ -71,17 +86,29 @@ button {
   padding: 10px 16px;
   border-radius: 8px;
   border: none;
-  background: var(--accent);
-  color: var(--bg);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
+button:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+
 button.secondary {
   background: transparent;
-  color: var(--text);
-  border: 1px solid var(--link);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+button.secondary:hover:not(:disabled) {
+  background: var(--color-surface-2);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 button:disabled {
@@ -93,20 +120,22 @@ button:disabled {
   margin: 0;
 }
 .status.ok {
-  color: var(--ok);
+  color: var(--color-primary);
 }
 .status.error {
-  color: var(--danger);
+  color: var(--color-danger-text);
 }
 
 .graph {
+  background: var(--color-map-ground);
+  border-radius: 8px;
   width: 100%;
   height: auto;
   display: block;
 }
 
 .link line {
-  stroke: var(--link);
+  stroke: var(--color-text-muted);
   stroke-width: 4;
 }
 .link .hit {
@@ -115,35 +144,36 @@ button:disabled {
   cursor: pointer;
 }
 .link.on-path line:not(.hit) {
-  stroke: var(--ok);
+  stroke: var(--color-route);
   stroke-width: 6;
 }
 .link.disabled line:not(.hit) {
-  stroke: var(--danger);
+  stroke: var(--color-danger);
   stroke-dasharray: 8 8;
 }
 
 .node circle {
-  fill: var(--panel);
-  stroke: var(--accent);
+  fill: var(--color-bg);
+  stroke: var(--color-explore);
   stroke-width: 3;
 }
 .node.client circle,
 .node.server circle {
-  fill: var(--accent);
+  fill: var(--color-primary);
 }
 .node.router {
   cursor: pointer;
 }
 .node.visited circle {
-  stroke: var(--ok);
+  fill: var(--color-explore-soft);
+  stroke: var(--color-explore);
 }
 .node.disabled circle {
-  stroke: var(--danger);
-  fill: #450a0a;
+  stroke: var(--color-danger);
+  fill: var(--color-danger-soft);
 }
 .node text {
-  fill: var(--text);
+  fill: var(--color-text);
   font-size: 18px;
 }
 .node:focus-visible circle {
