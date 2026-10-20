@@ -90,7 +90,7 @@ packet plan (from Submit), the failure sets, and playback state.
 By default only `fileName` and `sizeBytes` leave the browser. Real packets are ~1,500 bytes, so
 1 MB ≈ 700 packets; cars are capped at 24 and each carries a range of packets.
 
-If the user ticks the (default-off) checkbox, Send also streams the bytes (≤ 10 MiB) to
+If the user ticks the (default-off) checkbox, Send also streams the bytes (≤ 10 MB) to
 `POST /api/upload`. The server feeds them to an incremental SHA-256 and a byte counter, then
 discards them: no disk, no database, no logging of contents or file name. The browser compares the
 returned hash with its own. The upload never blocks or fails the simulation. Real bytes take
@@ -306,7 +306,7 @@ Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
 | 400    | `UNKNOWN_ID`        | Node/link ID not in topology                  |
 | 400    | `VALIDATION_ERROR`  | `/upload` with an empty body                  |
 | 404    | `NOT_FOUND`         | Unknown route                                 |
-| 413    | `PAYLOAD_TOO_LARGE` | `/upload` body over 10 MiB                    |
+| 413    | `PAYLOAD_TOO_LARGE` | `/upload` body over 10 MB                    |
 | 429    | `RATE_LIMITED`      | `/upload` over ~10 per minute per IP          |
 | 500    | `INTERNAL_ERROR`    | Unhandled error (logged, not returned)        |
 
@@ -321,7 +321,7 @@ Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
 | Max cars per transfer | 24          |
 | Disabled IDs per list | 64          |
 | Request body (JSON)   | 16 KiB      |
-| Upload body           | 10 MiB      |
+| Upload body           | 10,000,000 B |
 | Uploads per IP        | ~10 / min   |
 
 ## Configuration

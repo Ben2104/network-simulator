@@ -12,9 +12,9 @@
 | `haohnguyen94-droid` | 5      | W1: 4 · W2: 1 · W3: 0 · W4: 0 |
 | `doubleeyetwo`       | 6      | W1: 3 · W2: 1 · W3: 2 · W4: 0 |
 | `BlakeJG`            | 4      | W1: 2 · W2: 2 · W3: 0 · W4: 0 |
-| `ple0309`            | 4      | W1: 1 · W2: 2 · W3: 1 · W4: 0 |
+| `ple0309`            | 3      | W1: 0 · W2: 2 · W3: 1 · W4: 0 |
 | `CohenK`             | 5      | W1: 0 · W2: 2 · W3: 3 · W4: 0 |
-| `Ben2104`            | 6      | W1: 1 · W2: 0 · W3: 4 · W4: 1 |
+| `Ben2104`            | 7      | W1: 2 · W2: 0 · W3: 4 · W4: 1 |
 | **Total**            | **30** |                               |
 
 ## Labels
@@ -269,7 +269,7 @@ The geolocation start snaps to the nearest station in the browser, so `haversine
 
 #### 9. Design remaining states in Figma v2
 
-- **Assignee:** `ple0309`
+- **Assignee:** `Ben2104`
 - **Labels:** `figma-v2`, `area:design`, `plan-3`, `user-story`
 - **Milestone:** W1
 
@@ -746,8 +746,8 @@ Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issu
 
 - [ ] `POST /api/upload` accepts `application/octet-stream` as a stream (custom content-type parser returning the raw stream); the body is never buffered in memory
 - [ ] Bytes feed an incremental SHA-256 (`node:crypto`) and a byte counter, then are discarded: no disk, no database, no logging of contents or of `X-File-Name`
-- [ ] 200 returns `{ bytesReceived, sha256, receivedAt (ISO), region: "oregon" }`; schema and `MAX_UPLOAD_BYTES` (10 MiB = 10,485,760) added to `packages/shared`
-- [ ] Over 10 MiB returns 413 `PAYLOAD_TOO_LARGE`, enforced by counting streamed bytes and aborting (not only by `Content-Length`/`bodyLimit`, which a stream parser may bypass)
+- [ ] 200 returns `{ bytesReceived, sha256, receivedAt (ISO), region: "oregon" }`; schema and `MAX_UPLOAD_BYTES` (10 MB = 10,000,000 B) added to `packages/shared`
+- [ ] Over 10 MB returns 413 `PAYLOAD_TOO_LARGE`, enforced by counting streamed bytes and aborting (not only by `Content-Length`/`bodyLimit`, which a stream parser may bypass)
 - [ ] `@fastify/rate-limit` ~10 uploads/min/IP returns 429 `RATE_LIMITED`; empty body returns 400 `VALIDATION_ERROR`; all errors use `{ error: { code, message } }`
 - [ ] CORS config same as other routes and allows the `X-File-Name` request header; `npm run check` passes
 
@@ -772,7 +772,7 @@ Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issu
 **Acceptance criteria**
 
 - [ ] Hash correctness on a known vector: SHA-256 of `abc` is `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`; also a multi-chunk upload equals the same digest
-- [ ] 413 `PAYLOAD_TOO_LARGE` for 10 MiB + 1 byte, both with a `Content-Length` and chunked (no length); exactly 10 MiB succeeds
+- [ ] 413 `PAYLOAD_TOO_LARGE` for 10 MB + 1 byte, both with a `Content-Length` and chunked (no length); exactly 10 MB succeeds
 - [ ] 429 `RATE_LIMITED` on the 11th upload within a minute from one IP; empty body gives 400; error shape asserted
 - [ ] Memory check: stream a 10 MB body in small chunks and assert heap/RSS growth stays far below the body size (threshold agreed in the PR)
 - [ ] Test confirms no log line contains the file name or body (capture the logger output)
@@ -799,7 +799,7 @@ Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issu
 
 - [ ] Typed `upload()` in `apps/web/src/api/client.ts` sends raw bytes (`File`/`Blob` body, UTF-8 bytes for message source) with optional `X-File-Name`
 - [ ] Browser hash via `crypto.subtle.digest("SHA-256")`; hex compared with the server `sha256`
-- [ ] Opt-in flag in simulation state, default off; `canUpload(sizeBytes)` false above 10 MiB
+- [ ] Opt-in flag in simulation state, default off; `canUpload(sizeBytes)` false above 10 MB
 - [ ] On Send, `/api/route` and `/api/upload` start in parallel; upload outcome never blocks, delays or fails the main state machine
 - [ ] Upload sub-state `off | pending | verified | mismatch | failed` covered by reducer tests (incl. server 413/429/network error, and the upload finishing after `delivered`)
 - [ ] No upload happens unless the checkbox is ticked; coordinates and file name are never logged client-side
@@ -855,10 +855,10 @@ Spec: Q11 (opt-in real upload, nothing stored) and Q12 (geolocation start). Issu
 
 **Acceptance criteria**
 
-- [ ] Verify a 10 MiB upload succeeds end-to-end through the Render proxy on the deployed API, and an 11 MiB upload returns 413 `PAYLOAD_TOO_LARGE` (not a proxy error page); record findings in `docs/architecture.md`
+- [ ] Verify a 10 MB upload succeeds end-to-end through the Render proxy on the deployed API, and an 11 MB upload returns 413 `PAYLOAD_TOO_LARGE` (not a proxy error page); record findings in `docs/architecture.md`
 - [ ] Fastify `trustProxy` configured so `@fastify/rate-limit` keys on the real client IP from `X-Forwarded-For`, not the Render proxy IP; verify two different clients do not share one bucket
 - [ ] CORS: `CORS_ORIGIN` includes the static site; preflight for `Content-Type: application/octet-stream` and `X-File-Name` succeeds
-- [ ] Memory watched on the free instance during a 10 MiB upload (Render metrics); note result and any need to change plan
+- [ ] Memory watched on the free instance during a 10 MB upload (Render metrics); note result and any need to change plan
 - [ ] Server logs on Render confirmed to contain no file names or contents
 
 **Depends on**

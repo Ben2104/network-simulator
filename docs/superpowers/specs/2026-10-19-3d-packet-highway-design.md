@@ -125,7 +125,7 @@ Reno, Redding, Klamath Falls, Medford, Eugene, Bend, Portland, US-West Data Cent
 
 - The server pipes the body into an incremental SHA-256 (`node:crypto`) and a byte counter, then
   discards it. No disk, no database, no logging of contents or file name.
-- Limits: body ≤ 10 MiB (10,485,760 B) → `413 PAYLOAD_TOO_LARGE`, enforced by counting bytes (not only
+- Limits: body ≤ 10 MB (10,000,000 B) → `413 PAYLOAD_TOO_LARGE`, enforced by counting bytes (not only
   `Content-Length`); ~10 uploads/min/IP (`@fastify/rate-limit`) → `429 RATE_LIMITED`; empty body →
   `400 VALIDATION_ERROR`. Errors use `{ error: { code, message } }`; CORS same as other routes.
 - Independent of `/api/packetize` (still declared-size, up to 1 GiB) and `/api/route`.

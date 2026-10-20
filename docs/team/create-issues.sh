@@ -231,7 +231,7 @@ issue 'sim: state types and useSimulation reducer' 'BlakeJG' 'plan-2,area:sim,us
 - `docs/architecture.md` (Simulation state machine)
 ISSUE_BODY
 
-issue 'Design remaining states in Figma v2' 'ple0309' 'figma-v2,area:design,plan-3,user-story' 'W1' <<'ISSUE_BODY'
+issue 'Design remaining states in Figma v2' 'Ben2104' 'figma-v2,area:design,plan-3,user-story' 'W1' <<'ISSUE_BODY'
 **User story:** As a student presenting or using the simulator, I want every screen state designed before it is built, so that the interface looks complete and consistent in each situation.
 
 **Acceptance criteria**
@@ -572,8 +572,8 @@ issue 'POST /api/upload: streaming SHA-256, limits and rate limit' 'haohnguyen94
 **Acceptance criteria**
 - [ ] `POST /api/upload` accepts `application/octet-stream` as a stream (custom content-type parser returning the raw stream); the body is never buffered in memory
 - [ ] Bytes feed an incremental SHA-256 (`node:crypto`) and a byte counter, then are discarded: no disk, no database, no logging of contents or of `X-File-Name`
-- [ ] 200 returns `{ bytesReceived, sha256, receivedAt (ISO), region: "oregon" }`; schema and `MAX_UPLOAD_BYTES` (10 MiB = 10,485,760) added to `packages/shared`
-- [ ] Over 10 MiB returns 413 `PAYLOAD_TOO_LARGE`, enforced by counting streamed bytes and aborting (not only by `Content-Length`/`bodyLimit`, which a stream parser may bypass)
+- [ ] 200 returns `{ bytesReceived, sha256, receivedAt (ISO), region: "oregon" }`; schema and `MAX_UPLOAD_BYTES` (10 MB = 10,000,000 B) added to `packages/shared`
+- [ ] Over 10 MB returns 413 `PAYLOAD_TOO_LARGE`, enforced by counting streamed bytes and aborting (not only by `Content-Length`/`bodyLimit`, which a stream parser may bypass)
 - [ ] `@fastify/rate-limit` ~10 uploads/min/IP returns 429 `RATE_LIMITED`; empty body returns 400 `VALIDATION_ERROR`; all errors use `{ error: { code, message } }`
 - [ ] CORS config same as other routes and allows the `X-File-Name` request header; `npm run check` passes
 
@@ -591,7 +591,7 @@ issue 'Upload API tests: hash vector, limits, rate limit and memory' 'doubleeyet
 
 **Acceptance criteria**
 - [ ] Hash correctness on a known vector: SHA-256 of `abc` is `ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`; also a multi-chunk upload equals the same digest
-- [ ] 413 `PAYLOAD_TOO_LARGE` for 10 MiB + 1 byte, both with a `Content-Length` and chunked (no length); exactly 10 MiB succeeds
+- [ ] 413 `PAYLOAD_TOO_LARGE` for 10 MB + 1 byte, both with a `Content-Length` and chunked (no length); exactly 10 MB succeeds
 - [ ] 429 `RATE_LIMITED` on the 11th upload within a minute from one IP; empty body gives 400; error shape asserted
 - [ ] Memory check: stream a 10 MB body in small chunks and assert heap/RSS growth stays far below the body size (threshold agreed in the PR)
 - [ ] Test confirms no log line contains the file name or body (capture the logger output)
@@ -611,7 +611,7 @@ issue 'Client upload: opt-in, SHA-256 compare and verified states' 'Ben2104' 'pl
 **Acceptance criteria**
 - [ ] Typed `upload()` in `apps/web/src/api/client.ts` sends raw bytes (`File`/`Blob` body, UTF-8 bytes for message source) with optional `X-File-Name`
 - [ ] Browser hash via `crypto.subtle.digest("SHA-256")`; hex compared with the server `sha256`
-- [ ] Opt-in flag in simulation state, default off; `canUpload(sizeBytes)` false above 10 MiB
+- [ ] Opt-in flag in simulation state, default off; `canUpload(sizeBytes)` false above 10 MB
 - [ ] On Send, `/api/route` and `/api/upload` start in parallel; upload outcome never blocks, delays or fails the main state machine
 - [ ] Upload sub-state `off | pending | verified | mismatch | failed` covered by reducer tests (incl. server 413/429/network error, and the upload finishing after `delivered`)
 - [ ] No upload happens unless the checkbox is ticked; coordinates and file name are never logged client-side
@@ -653,10 +653,10 @@ issue 'DevOps: Render limits for 10 MB uploads, trustProxy and CORS' 'Ben2104' '
 **User story:** As a student presenting, I want uploads to work on the deployed site and rate limits to apply per visitor, so that one noisy user cannot lock out the room.
 
 **Acceptance criteria**
-- [ ] Verify a 10 MiB upload succeeds end-to-end through the Render proxy on the deployed API, and an 11 MiB upload returns 413 `PAYLOAD_TOO_LARGE` (not a proxy error page); record findings in `docs/architecture.md`
+- [ ] Verify a 10 MB upload succeeds end-to-end through the Render proxy on the deployed API, and an 11 MB upload returns 413 `PAYLOAD_TOO_LARGE` (not a proxy error page); record findings in `docs/architecture.md`
 - [ ] Fastify `trustProxy` configured so `@fastify/rate-limit` keys on the real client IP from `X-Forwarded-For`, not the Render proxy IP; verify two different clients do not share one bucket
 - [ ] CORS: `CORS_ORIGIN` includes the static site; preflight for `Content-Type: application/octet-stream` and `X-File-Name` succeeds
-- [ ] Memory watched on the free instance during a 10 MiB upload (Render metrics); note result and any need to change plan
+- [ ] Memory watched on the free instance during a 10 MB upload (Render metrics); note result and any need to change plan
 - [ ] Server logs on Render confirmed to contain no file names or contents
 
 **Depends on**
@@ -670,7 +670,7 @@ issue 'DevOps: Render limits for 10 MB uploads, trustProxy and CORS' 'Ben2104' '
 ISSUE_BODY
 
 # Comments on existing issues (not created by this script; post manually):
-#   #23: Update 2026-10-20: real upload adds a 10 MiB body, rate limiting and CORS needs; the Render-specific checks are tracked in (DevOps upload issue). Nothing else changes here.
+#   #23: Update 2026-10-20: real upload adds a 10 MB body, rate limiting and CORS needs; the Render-specific checks are tracked in (DevOps upload issue). Nothing else changes here.
 #   #18: Update 2026-10-20: add an E2E case for the opt-in upload (tick checkbox → Send → "Verified in Oregon") and one for the "Start from…" picker. Real geolocation cannot be asserted in CI; use the picker and Playwright's mocked geolocation permission.
 #   #19: Update 2026-10-20: also cover the upload checkbox (default off, disabled above 10 MB), the verified/mismatch/failed badges, and the "Start from…" `<select>` keyboard path in the audit.
 
