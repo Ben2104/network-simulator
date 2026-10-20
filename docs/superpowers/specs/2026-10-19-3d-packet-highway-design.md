@@ -171,14 +171,16 @@ Assets: Natural Earth (public domain); Kenney kits (CC0). Record sources in `app
 
 ## 6. Team ownership
 
-| #   | Area                 | Deliverables                                                                     |
-| --- | -------------------- | -------------------------------------------------------------------------------- |
-| 1   | Frontend / UI        | `ui/` panels, layout, responsive, Stitch design → components                     |
-| 2   | Backend / algorithms | topology, `/packetize`, `/route` + `fromNodeId`, haversine, invariants           |
-| 3   | 3D scene + animation | `scene3d/`, ground, models, car motion, camera                                   |
-| 4   | Testing / QA         | Testing Library + Playwright, timeline tests, a11y audit                         |
-| 5   | DevOps               | Render (Oregon), CI with Playwright, env vars, preview deploys                   |
-| 6   | Integration / docs   | shared contract, `sim/` reducer + timeline, 2D view upgrade, README, demo script |
+Owners per `2026-10-20-light-theme-team-kickoff-design.md` §4 (rebalanced: the API is small and stateless).
+
+| #   | Area                 | Owner                                                                                                  | Deliverables                                                             |
+| --- | -------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| 1   | Frontend / UI        | `ple0309`                                                                                              | `ui/` panels, layout, responsive, Figma v2 → components, 2D view upgrade |
+| 2   | Backend / algorithms | `haohnguyen94-droid` (Hao), `doubleeyetwo` (Double)                                                    | topology, `/packetize`, `/route` + `fromNodeId`, haversine, invariants   |
+| 3   | 3D scene + animation | `CohenK`                                                                                               | `scene3d/`, ground, models, car motion, camera                           |
+| 4   | Testing / QA         | `doubleeyetwo` (after Plan 1)                                                                          | Testing Library + Playwright, a11y audit                                 |
+| 5   | DevOps               | `Ben2104` (Khoi)                                                                                       | Render (Oregon), CI with Playwright, env vars, branch protection         |
+| 6   | Integration / docs   | `BlakeJG` (Blakes) for `sim/`; `haohnguyen94-droid` for contract; `Ben2104` for README and demo script | shared contract, `sim/` reducer + timeline, README, demo script          |
 
 Checkpoints: **end W1** contract frozen + mock responses; **mid W2** Submit → delivered in 2D;
 **end W3** feature-complete in 3D; **W4** bug fixes only.
