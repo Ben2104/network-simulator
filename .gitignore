@@ -6,3 +6,9 @@ coverage/
 .env.*
 !.env.example
 .DS_Store
+
+# agent instructions are shared with the team (global ignore hides them)
+!AGENTS.md
+!CLAUDE.md
+!.claude/
+!.claude/skills/

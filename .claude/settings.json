@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'REQUIRED: before any work in this repo, load the network-simulator skill (.claude/skills/network-simulator/SKILL.md) and read docs/architecture.md. Follow AGENTS.md.'"
+          }
+        ]
+      }
+    ]
+  }
+}
