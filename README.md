@@ -12,6 +12,13 @@ or roads and send again to watch it reroute.
 > immediately deleted — never stored. Real bytes take whatever internet path ISPs choose; the cars
 > show an illustrative BFS route.
 
+## Live
+
+- Website: https://network-simulator-xi.vercel.app/
+- API docs (Swagger UI): https://network-simulator-xf2s.onrender.com/docs
+
+The API runs on Render's free tier, so the first request after idle can take about a minute.
+
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
 shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
 
