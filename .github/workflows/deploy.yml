@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 2
       - id: diff
         run: |
-          # Shared and root dependency changes ship both sides. Keep the API list in sync with ci.yml.
+          # Diffs the CI run's head commit against its parent. Shared and root config changes ship both sides. Keep the API list in sync with ci.yml.
           if files=$(git diff --name-only HEAD^ HEAD 2>/dev/null); then
             echo "$files"
           else
@@ -39,8 +39,8 @@ jobs:
           fi
           api=false
           web=false
-          echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|\.dockerignore$)' && api=true
-          echo "$files" | grep -Eq '^(apps/web/|packages/shared/|package(-lock)?\.json$)' && web=true
+          echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$|\.dockerignore$)' && api=true
+          echo "$files" | grep -Eq '^(apps/web/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && web=true
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "web=$web" >> "$GITHUB_OUTPUT"
           echo "api changed: $api, web changed: $web"

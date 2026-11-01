@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # main runs are never cancelled: deploy diffs one commit per run
 
 jobs:
   check:
@@ -41,7 +41,7 @@ jobs:
       - id: api
         run: |
           # Keep this list in sync with the `changes` job in deploy.yml.
-          if git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|\.dockerignore$)'; then
+          if git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$|\.dockerignore$)'; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "No API paths changed; skipping image build"

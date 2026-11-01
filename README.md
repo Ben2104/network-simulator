@@ -112,13 +112,13 @@ PRs that touch API paths and builds the API container image without pushing it, 
 Dockerfile is caught before merge.
 
 **CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
-PRs. It compares the merged commit with its parent and ships only what changed:
+PRs. It compares the CI run's head commit with its parent and ships only what changed:
 
-| Changed path                                                    | Ships                                                                                                                         |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `apps/server/**`, `.dockerignore`                               | API only: image built and pushed to `ghcr.io/<owner>/netsim-api` (tags: commit sha, `latest`), then Render deploys that image |
-| `apps/web/**`                                                   | Web only: Render rebuilds the static site                                                                                     |
-| `packages/shared/**`, root `package.json` / `package-lock.json` | Both                                                                                                                          |
+| Changed path                                                                           | Ships                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `apps/server/**`, `.dockerignore`                                                      | API only: image built and pushed to `ghcr.io/<owner>/netsim-api` (tags: commit sha, `latest`), then Render deploys that image |
+| `apps/web/**`                                                                          | Web only: Render rebuilds the static site                                                                                     |
+| `packages/shared/**`, root `package.json` / `package-lock.json` / `tsconfig.base.json` | Both                                                                                                                          |
 
 The front end stays a Render static site (free, CDN) because static sites cannot deploy from an
 image. **You do not need Docker.** Teammates work with `npm run dev` and never build an image;
