@@ -13,8 +13,15 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+# The one place for public URLs. Override with repository variables WEB_URL / API_URL.
+env:
+  WEB_URL: ${{ vars.WEB_URL || 'https://network-simulator-xi.vercel.app' }}
+  API_URL: ${{ vars.API_URL || 'https://network-simulator-xf2s.onrender.com' }}
+
 # Only after a green CI run of a push to main; never for PRs.
-# API only: the front end deploys to Vercel through its own git integration.
+# deploy-api triggers Render and verify-api waits for the new build to serve.
+# The web app deploys through Vercel's git integration; deploy-web only waits for its
+# commit status and checks the live site.
 jobs:
   changes:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
@@ -22,6 +29,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       api: ${{ steps.diff.outputs.api }}
+      web: ${{ steps.diff.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,15 +46,24 @@ jobs:
           fi
           api=false
           echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && api=true
+          # Same paths as vercel.json ignoreCommand; keep the two in sync.
+          web=false
+          echo "$files" | grep -Eq '^(apps/web/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && web=true
           echo "api=$api" >> "$GITHUB_OUTPUT"
-          echo "api changed: $api"
+          echo "web=$web" >> "$GITHUB_OUTPUT"
+          echo "api changed: $api, web changed: $web"
 
   deploy-api:
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: production
+    environment:
+      name: production
+      url: ${{ env.API_URL }}/docs
+    outputs:
+      triggered: ${{ steps.hook.outputs.triggered }}
+      fired_at: ${{ steps.hook.outputs.fired_at }}
     env:
       RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
     steps:
@@ -61,11 +78,124 @@ jobs:
       - name: Prove shared and server build
         run: npm run build -w @netsim/shared && npm run build -w @netsim/server
       - name: Trigger Render deploy
+        id: hook
         run: |
           # Hook URL is a credential: read from env only, never echoed.
           if [ -z "$RENDER_API_DEPLOY_HOOK" ]; then
             echo "::notice::RENDER_API_DEPLOY_HOOK is not set; skipping API deploy"
+            echo "triggered=false" >> "$GITHUB_OUTPUT"
+            echo "### API deploy skipped" >> "$GITHUB_STEP_SUMMARY"
+            echo "RENDER_API_DEPLOY_HOOK is not set." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          fired_at=$(date +%s)
           curl -fsS -o /dev/null -X POST "$RENDER_API_DEPLOY_HOOK"
           echo "Triggered API deploy"
+          echo "triggered=true" >> "$GITHUB_OUTPUT"
+          echo "fired_at=$fired_at" >> "$GITHUB_OUTPUT"
+          {
+            echo "### API deploy triggered"
+            echo "- API: $API_URL"
+            echo "- Swagger UI: $API_URL/docs"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Render builds asynchronously: wait until the new build is the one answering.
+  verify-api:
+    needs: deploy-api
+    if: needs.deploy-api.outputs.triggered == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FIRED_AT: ${{ needs.deploy-api.outputs.fired_at }}
+    steps:
+      - name: Wait for the new API build
+        run: |
+          # A process that started after the hook fired has uptime below the time since firing.
+          # The old instance cannot satisfy that, so this proves the new build is serving.
+          deadline=$(( $(date +%s) + 600 ))
+          while true; do
+            code=$(curl -sS -m 30 -o health.json -w '%{http_code}' "$API_URL/api/health" || true)
+            up=$(jq -r '.uptimeSeconds // empty' health.json 2>/dev/null || true)
+            elapsed=$(( $(date +%s) - FIRED_AT ))
+            echo "health: HTTP $code, uptimeSeconds=${up:-n/a}, ${elapsed}s since deploy hook"
+            if [ "$code" = "200" ] && [ -n "$up" ] && [ "$up" -lt "$elapsed" ]; then break; fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::New API build did not start serving within 10 minutes of the deploy hook; check the Render dashboard"
+              exit 1
+            fi
+            sleep 15
+          done
+      - name: Check Swagger JSON
+        run: |
+          code=$(curl -sS -m 30 -o /dev/null -w '%{http_code}' "$API_URL/docs/json" || true)
+          [ "$code" = "200" ] || { echo "::error::GET /docs/json returned HTTP $code"; exit 1; }
+      - name: Summary
+        run: |
+          {
+            echo "### API is live on the new build"
+            echo "- API: $API_URL"
+            echo "- Swagger UI: $API_URL/docs"
+            echo
+            echo "Render free tier: the first request after idle can take about a minute."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-web:
+    needs: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: read
+    environment:
+      name: vercel-production
+      url: ${{ env.WEB_URL }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      WEB_CHANGED: ${{ needs.changes.outputs.web }}
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Wait for the Vercel deployment
+        run: |
+          if [ "$WEB_CHANGED" != "true" ]; then
+            echo "::notice::No web paths changed; Vercel skips this build, so not waiting for it"
+            exit 0
+          fi
+          deadline=$(( $(date +%s) + 600 ))
+          while true; do
+            # Newest status per context, Vercel contexts only.
+            states=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/statuses?per_page=100" \
+              --jq '[.[] | select(.context | startswith("Vercel"))] | group_by(.context) | map(.[0].state) | .[]' || true)
+            echo "Vercel status: ${states:-none yet}" | tr '\n' ' '; echo
+            if echo "$states" | grep -Eq '^(failure|error)$'; then
+              echo "::error::Vercel deployment failed for $SHA"
+              exit 1
+            fi
+            if [ -n "$states" ] && ! echo "$states" | grep -vq '^success$'; then break; fi
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::Vercel did not report success for $SHA within 10 minutes"
+              exit 1
+            fi
+            sleep 15
+          done
+      - name: Check the production site
+        run: |
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -m 30 -o page.html -w '%{http_code}' "$WEB_URL/" || true)
+            if [ "$code" = "200" ] && grep -q '<div id="root">' page.html; then
+              echo "$WEB_URL is up (HTTP 200, app shell present)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $code, app shell not found"
+            sleep 10
+          done
+          echo "::error::$WEB_URL did not return the app shell"
+          exit 1
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### Try it"
+            echo "- Website: $WEB_URL"
+            echo "- API: $API_URL"
+            echo "- Swagger UI: $API_URL/docs"
+          } >> "$GITHUB_STEP_SUMMARY"
