@@ -106,8 +106,15 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 3. Run `npm run check` before pushing. CI runs the same plus `build`.
 4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
 
-CI runs one job, `check` (lint, format, typecheck, test, build). It must be green before merge.
-Render deploys only after `check` passes and skips docs-only changes (`docs/**`, `**/*.md`).
+**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: one job, `check`
+(lint, format, typecheck, test, build). It must be green before merge.
+
+**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never
+on PRs. It calls the Render deploy hooks for `netsim-api` and `netsim-web`; both Render
+services have `autoDeployTrigger: off`, so nothing else deploys. It uses the `production`
+GitHub Environment and the secrets `RENDER_API_DEPLOY_HOOK` and `RENDER_WEB_DEPLOY_HOOK`
+(Render → service → Settings → Deploy Hook). A missing secret skips that deploy with a notice.
+
 Each PR gets a Render preview of the static site only; it calls the production API, so the
 browser may report a CORS error until the API accepts preview origins.
 [CODEOWNERS](.github/CODEOWNERS) requests the area owner as reviewer; their approval is not

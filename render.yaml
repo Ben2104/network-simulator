@@ -9,11 +9,7 @@ services:
     buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/server
     startCommand: npm run start -w @netsim/server
     healthCheckPath: /api/health
-    autoDeployTrigger: checksPass
-    buildFilter:
-      ignoredPaths:
-        - docs/**
-        - '**/*.md'
+    autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
     envVars:
       - key: NODE_VERSION
         value: '22'
@@ -29,11 +25,7 @@ services:
     runtime: static
     buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/web
     staticPublishPath: apps/web/dist
-    autoDeployTrigger: checksPass
-    buildFilter:
-      ignoredPaths:
-        - docs/**
-        - '**/*.md'
+    autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
     previews:
       generation: automatic # static site only; netsim-api previews stay off
     routes:
