@@ -3,6 +3,7 @@ export interface Config {
   host: string;
   corsOrigins: string[];
   logLevel: string;
+  logFormat: 'pretty' | 'json';
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -16,5 +17,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       .map((o) => o.trim())
       .filter(Boolean),
     logLevel: env.LOG_LEVEL ?? 'info',
+    logFormat: env.LOG_FORMAT === 'json' ? 'json' : 'pretty',
   };
 }

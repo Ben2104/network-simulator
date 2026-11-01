@@ -4,7 +4,13 @@ import { HealthResponseSchema, type HealthResponse } from '@netsim/shared';
 export const healthRoutes: FastifyPluginAsync = async (app) => {
   app.get<{ Reply: HealthResponse }>(
     '/health',
-    { schema: { response: { 200: HealthResponseSchema } } },
+    {
+      schema: {
+        tags: ['health'],
+        summary: 'Liveness check',
+        response: { 200: HealthResponseSchema },
+      },
+    },
     async () => ({
       status: 'ok',
       uptimeSeconds: Math.round(process.uptime()),

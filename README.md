@@ -17,21 +17,23 @@ shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
 
 ## Quick start
 
-Requires Node 20.19+ (22 recommended, see `.nvmrc`).
+**Prerequisites:** Node 22 (see `.nvmrc`; 20.19+ also works) and npm.
 
 ```bash
+nvm use                                          # picks the version from .nvmrc
 npm install
+cp apps/server/.env.example apps/server/.env     # optional: defaults work locally
+cp apps/web/.env.example apps/web/.env           # optional
 npm run dev
+npm run check                                    # before pushing: lint, format, types, tests
 ```
 
 - Web: http://localhost:5173
-- API: http://localhost:3001/api/health
+- API: http://localhost:3001 (welcome message), http://localhost:3001/docs (Swagger UI)
 
 `npm run dev` builds the shared package, then runs three processes: shared `tsc --watch`, API
 (`tsx watch`), and Vite. Vite proxies `/api` to port 3001, so no env setup is needed locally.
-
-Optional: copy `apps/server/.env.example` → `apps/server/.env` and
-`apps/web/.env.example` → `apps/web/.env` to override defaults.
+Every env variable each app reads is listed, with a comment, in its `.env.example`.
 
 ## Scripts (root)
 
@@ -50,13 +52,16 @@ Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/sh
 
 ## Layout
 
-```
-apps/server      Fastify API (topology, BFS, packetization)
-apps/web         React UI: 3D scene (scene3d/), 2D fallback (view2d/), sim state + timeline (sim/)
-packages/shared  API schemas, types, limits, lat/lon projection (used by both apps)
-docs/            architecture.md, design spec, implementation plans, Stitch UI prompt
-render.yaml      Render deployment blueprint
-```
+| Path              | Contents                                                                     |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `apps/server`     | Fastify API (topology, BFS, packetization)                                   |
+| `apps/web`        | React UI: 3D scene (`scene3d/`), 2D fallback (`view2d/`), sim state (`sim/`) |
+| `packages/shared` | API schemas, types, limits, lat/lon projection (used by both apps)           |
+| `docs/`           | `architecture.md`, design spec, implementation plans, Stitch UI prompt       |
+| `render.yaml`     | Render deployment blueprint                                                  |
+
+The API contract lives in `packages/shared/src/schemas.ts` and is described in
+[docs/architecture.md](docs/architecture.md#api-contract).
 
 ## Architecture
 
@@ -87,6 +92,26 @@ contract, error codes, limits, config, and deployment details. Summary:
 | POST   | `/api/upload`    | Opt-in real upload: raw bytes (≤ 10 MB, streamed) → `bytesReceived`, `sha256`, `receivedAt`, `region`; hashed then discarded |
 
 Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RATE_LIMITED` 429).
+
+### API docs and logs
+
+- `GET /` returns a welcome message with links to `/docs` and `/api/health`.
+- `/docs` is a Swagger UI generated from the route schemas; the raw OpenAPI document is at `/docs/json`.
+- Logs are pretty-printed by default, one line per request. Set `LOG_FORMAT=json` for raw JSON
+  lines; `LOG_LEVEL` still applies.
+
+```
+$ curl localhost:3001/
+{"message":"Welcome to Network Simulator","docs":"/docs","health":"/api/health"}
+
+[13:44:41] INFO: incoming request
+    reqId: "req-1"
+    req: { "method": "GET", "url": "/", ... }
+[13:44:41] INFO: request completed
+    reqId: "req-1"
+    res: { "statusCode": 200 }
+    responseTime: 2.87
+```
 
 ## Deployment
 

@@ -12,6 +12,27 @@ afterAll(() => app.close());
 const route = (payload: object) => app.inject({ method: 'POST', url: '/api/route', payload });
 
 describe('API', () => {
+  it('GET / welcomes and links to docs', async () => {
+    const res = await app.inject({ method: 'GET', url: '/' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      message: 'Welcome to Network Simulator',
+      docs: '/docs',
+      health: '/api/health',
+    });
+  });
+
+  it('GET /docs/json lists the API routes', async () => {
+    const doc = (await app.inject({ method: 'GET', url: '/docs/json' })).json<{
+      info: { title: string };
+      paths: Record<string, unknown>;
+    }>();
+    expect(doc.info.title).toBe('Network Simulator API');
+    expect(Object.keys(doc.paths)).toEqual(
+      expect.arrayContaining(['/', '/api/health', '/api/network', '/api/route']),
+    );
+  });
+
   it('GET /api/health', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);
