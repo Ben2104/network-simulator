@@ -13,7 +13,7 @@ or roads and send again to watch it reroute.
 > show an illustrative BFS route.
 
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
-shared TypeBox contract · npm workspaces · Render.
+shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
 
 ## Quick start
 
@@ -90,13 +90,10 @@ Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RA
 
 ## Deployment
 
-Render → **New → Blueprint** → select this repo. Then in the dashboard:
-
-1. `netsim-web` → set `VITE_API_URL` = API URL (e.g. `https://netsim-api.onrender.com`),
-   redeploy.
-2. `netsim-api` → set `CORS_ORIGIN` = static site URL.
-
-No secrets. Free API instance sleeps when idle; warm it up before presenting.
+The **API** runs on Render (`render.yaml`, native Node service). The **front end** runs on Vercel
+through Vercel's own git integration; this repo's workflows do not deploy it. See the one-time
+setup under Contributing. No secrets in the repo. Free API instance sleeps when idle; warm it up
+before presenting.
 
 ## Contributing
 
@@ -107,41 +104,37 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
 
 **CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: job `check`
-(lint, format, typecheck, test, build) must be green before merge. A second job, `image`, runs on
-PRs that touch API paths and builds the API container image without pushing it, so a broken
-Dockerfile is caught before merge.
+(lint, format, typecheck, test, build for shared, server and web) must be green before merge.
+Runs on `main` are never cancelled; only superseded PR runs are.
 
 **CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
-PRs. It compares the CI run's head commit with its parent and ships only what changed:
-
-| Changed path                                                                           | Ships                                                                                                                         |
-| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `apps/server/**`, `.dockerignore`                                                      | API only: image built and pushed to `ghcr.io/<owner>/netsim-api` (tags: commit sha, `latest`), then Render deploys that image |
-| `apps/web/**`                                                                          | Web only: Render rebuilds the static site                                                                                     |
-| `packages/shared/**`, root `package.json` / `package-lock.json` / `tsconfig.base.json` | Both                                                                                                                          |
-
-The front end stays a Render static site (free, CDN) because static sites cannot deploy from an
-image. **You do not need Docker.** Teammates work with `npm run dev` and never build an image;
-CI builds it. Both Render services have `autoDeployTrigger: off`, so nothing else deploys. CD uses
-the `production` GitHub Environment and the secrets `RENDER_API_DEPLOY_HOOK` and
-`RENDER_WEB_DEPLOY_HOOK` (Render → service → Settings → Deploy Hook). A missing secret skips that
-Render call with a notice.
-
-The repo owner can run the API image locally with `docker compose up --build` (optional), then
-`npm run dev -w @netsim/web` for the UI.
+PRs. It compares the CI run's head commit with its parent. If `apps/server/**`,
+`packages/shared/**`, root `package.json` / `package-lock.json` or `tsconfig.base.json` changed, it
+builds shared and server to prove they build, then calls the Render deploy hook for `netsim-api`
+(`autoDeployTrigger: off`, so nothing else deploys it). Front-end-only changes deploy nothing from
+this workflow; Vercel handles them. CD uses the `production` GitHub Environment and the secret
+`RENDER_API_DEPLOY_HOOK`; a missing secret skips the deploy with a notice.
 
 ### One-time setup (repo owner)
 
-1. Merge a change that touches API paths so CD pushes the first `netsim-api` image to GHCR.
-2. Make the GHCR package public (GitHub → Packages → `netsim-api` → Package settings), or add
-   registry credentials in Render instead.
-3. In Render, create the `netsim-api` image service from `render.yaml` (Blueprint) and the
-   `netsim-web` static site; set `CORS_ORIGIN` and `VITE_API_URL` as above.
-4. Add the two deploy-hook secrets to the `production` environment (Settings → Environments).
-5. Apply the branch protection below, requiring `check`.
+**Render (API):**
 
-Each PR gets a Render preview of the static site only; it calls the production API, so the
-browser may report a CORS error until the API accepts preview origins.
+1. Render → **New → Blueprint** → select this repo (creates `netsim-api`).
+2. Set `CORS_ORIGIN` to the Vercel site URL (comma-separated for several origins).
+3. Service → Settings → Deploy Hook: copy the URL into the `production` environment secret
+   `RENDER_API_DEPLOY_HOOK` (GitHub → Settings → Environments).
+
+**Vercel (front end):**
+
+1. Import this repo. Set **Root Directory** to `apps/web` and turn on **Include files outside the
+   Root Directory in the Build Step** (the build needs `packages/shared`).
+2. Add the env var `VITE_API_URL` = the Render API URL (e.g. `https://netsim-api.onrender.com`).
+3. Settings → Git → **Ignored Build Step**: skip when nothing front-end changed, so server-only
+   changes do not redeploy, e.g. `git diff --quiet HEAD^ HEAD -- . ../../packages/shared`
+   (exit 0 skips the build, exit 1 builds).
+
+Then apply the branch protection below, requiring `check`.
+
 [CODEOWNERS](.github/CODEOWNERS) requests the area owner as reviewer; their approval is not
 mandatory.
 

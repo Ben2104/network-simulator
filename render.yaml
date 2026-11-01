@@ -1,39 +1,21 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# API: prebuilt container image. Web: static site built by Render. Values marked `sync: false` are entered in the Render dashboard.
+# API only; the front end deploys to Vercel (see README). Values marked `sync: false` are entered in the Render dashboard.
 services:
   - type: web
     name: netsim-api
-    runtime: image # built and pushed to GHCR by .github/workflows/deploy.yml
-    image:
-      url: ghcr.io/ben2104/netsim-api:latest # deploy hook overrides the tag per commit
-      # Private package? Add `creds: { fromRegistryCreds: { name: <registry credential> } }`
-      # or make the GHCR package public after the first push.
+    runtime: node
     region: oregon
     plan: free
+    buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/server
+    startCommand: npm run start -w @netsim/server
     healthCheckPath: /api/health
     autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
     envVars:
+      - key: NODE_VERSION
+        value: '22'
       - key: HOST
         value: 0.0.0.0
       - key: LOG_LEVEL
         value: info
       - key: CORS_ORIGIN
-        sync: false # e.g. https://netsim-web.onrender.com
-
-  - type: web
-    name: netsim-web
-    runtime: static
-    buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/web
-    staticPublishPath: apps/web/dist
-    autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
-    previews:
-      generation: automatic # static site only; netsim-api previews stay off
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: NODE_VERSION
-        value: '22'
-      - key: VITE_API_URL
-        sync: false # e.g. https://netsim-api.onrender.com
+        sync: false # comma-separated allowed origins, e.g. your Vercel URL

@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 # Only after a green CI run of a push to main; never for PRs.
-# `changes` decides which side shipped; each deploy job runs only for its side.
+# API only: the front end deploys to Vercel through its own git integration.
 jobs:
   changes:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
@@ -22,7 +22,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       api: ${{ steps.diff.outputs.api }}
-      web: ${{ steps.diff.outputs.web }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,82 +29,43 @@ jobs:
           fetch-depth: 2
       - id: diff
         run: |
-          # Diffs the CI run's head commit against its parent. Shared and root config changes ship both sides. Keep the API list in sync with ci.yml.
+          # Diffs the CI run's head commit against its parent.
           if files=$(git diff --name-only HEAD^ HEAD 2>/dev/null); then
             echo "$files"
           else
-            echo "::notice::No parent commit to diff; deploying both sides"
+            echo "::notice::No parent commit to diff; deploying the API"
             files="package.json"
           fi
           api=false
-          web=false
-          echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$|\.dockerignore$)' && api=true
-          echo "$files" | grep -Eq '^(apps/web/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && web=true
+          echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && api=true
           echo "api=$api" >> "$GITHUB_OUTPUT"
-          echo "web=$web" >> "$GITHUB_OUTPUT"
-          echo "api changed: $api, web changed: $web"
+          echo "api changed: $api"
 
   deploy-api:
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     environment: production
-    permissions:
-      contents: read
-      packages: write
     env:
       RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
-      SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - name: Image name
-        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/netsim-api" >> "$GITHUB_ENV"
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/server/Dockerfile
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ env.SHA }}
-            ${{ env.IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Deploy this image on Render
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Prove shared and server build
+        run: npm run build -w @netsim/shared && npm run build -w @netsim/server
+      - name: Trigger Render deploy
         run: |
           # Hook URL is a credential: read from env only, never echoed.
           if [ -z "$RENDER_API_DEPLOY_HOOK" ]; then
-            echo "::notice::RENDER_API_DEPLOY_HOOK is not set; image pushed, Render deploy skipped"
+            echo "::notice::RENDER_API_DEPLOY_HOOK is not set; skipping API deploy"
             exit 0
           fi
-          img=$(jq -rn --arg u "$IMAGE:$SHA" '$u | @uri')
-          curl -fsS -o /dev/null -X POST "$RENDER_API_DEPLOY_HOOK&imgURL=$img"
-          echo "Triggered Render deploy of $IMAGE:$SHA"
-
-  # Static site: Render static sites cannot deploy from an image, so the front end is not containerised.
-  deploy-web:
-    needs: changes
-    if: needs.changes.outputs.web == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    environment: production
-    env:
-      RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
-    steps:
-      - name: Trigger Render static site deploy
-        run: |
-          # Hook URL is a credential: read from env only, never echoed.
-          if [ -z "$RENDER_WEB_DEPLOY_HOOK" ]; then
-            echo "::notice::RENDER_WEB_DEPLOY_HOOK is not set; skipping web deploy"
-            exit 0
-          fi
-          curl -fsS -o /dev/null -X POST "$RENDER_WEB_DEPLOY_HOOK"
-          echo "Triggered web deploy"
+          curl -fsS -o /dev/null -X POST "$RENDER_API_DEPLOY_HOOK"
+          echo "Triggered API deploy"
