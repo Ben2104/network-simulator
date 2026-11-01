@@ -126,12 +126,11 @@ this workflow; Vercel handles them. CD uses the `production` GitHub Environment 
 
 **Vercel (front end):**
 
-1. Import this repo. Set **Root Directory** to `apps/web` and turn on **Include files outside the
-   Root Directory in the Build Step** (the build needs `packages/shared`).
-2. Add the env var `VITE_API_URL` = the Render API URL (e.g. `https://netsim-api.onrender.com`).
-3. Settings → Git → **Ignored Build Step**: skip when nothing front-end changed, so server-only
-   changes do not redeploy, e.g. `git diff --quiet HEAD^ HEAD -- . ../../packages/shared`
-   (exit 0 skips the build, exit 1 builds).
+1. Import this repo and leave **Root Directory** blank (the repo root). Build settings, output
+   directory and the ignored-build-step check (skips builds when nothing front-end changed) come
+   from [`vercel.json`](vercel.json).
+2. In the dashboard set only the env var `VITE_API_URL` = the Render API URL (e.g.
+   `https://netsim-api.onrender.com`).
 
 Then apply the branch protection below, requiring `check`.
 
