@@ -1,0 +1,11 @@
+# Last matching pattern wins. Owners are requested as reviewers; approval is not required by branch protection.
+# Owners come from docs/superpowers/specs/2026-10-20-light-theme-team-kickoff-design.md section 4.
+
+*                          @Ben2104
+/apps/server/              @haohnguyen94-droid @doubleeyetwo
+/packages/shared/          @haohnguyen94-droid @doubleeyetwo
+/apps/web/                 @ple0309
+/apps/web/src/sim/         @BlakeJG
+/apps/web/src/scene3d/     @CohenK
+/.github/                  @Ben2104
+/render.yaml               @Ben2104

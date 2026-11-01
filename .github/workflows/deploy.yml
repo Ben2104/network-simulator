@@ -1,0 +1,38 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only after a green CI run of a push to main; never for PRs.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    env:
+      RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+      RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
+    steps:
+      - name: Trigger Render deploys
+        run: |
+          # Hook URLs are credentials: read from env only, never echoed.
+          for name in RENDER_API_DEPLOY_HOOK RENDER_WEB_DEPLOY_HOOK; do
+            url="${!name}"
+            if [ -z "$url" ]; then
+              echo "::notice::$name is not set; skipping that deploy"
+              continue
+            fi
+            curl -fsS -o /dev/null -X POST "$url"
+            echo "Triggered $name"
+          done
