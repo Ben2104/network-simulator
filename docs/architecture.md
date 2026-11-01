@@ -227,6 +227,8 @@ rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
 
 Base path `/api`. JSON bodies. Source of truth: `packages/shared/src/schemas.ts`.
 
+Outside the base path: `GET /` returns `{ "message": "Welcome to Network Simulator", "docs": "/docs", "health": "/api/health" }`; `/docs` serves Swagger UI and `/docs/json` the OpenAPI document.
+
 ### `GET /api/health`
 
 ```json
@@ -332,6 +334,7 @@ Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
 | `HOST`         | server | `0.0.0.0`               |                                        |
 | `CORS_ORIGIN`  | server | `http://localhost:5173` | Comma-separated allowed origins        |
 | `LOG_LEVEL`    | server | `info`                  | Pino level                             |
+| `LOG_FORMAT`   | server | `pretty`                | `pretty` or `json`                     |
 | `VITE_API_URL` | web    | empty                   | Empty in dev (Vite proxy). Build-time. |
 
 No secrets.
