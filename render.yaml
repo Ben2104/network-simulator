@@ -1,18 +1,18 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# Two services from one repo. Values marked `sync: false` are entered in the Render dashboard.
+# API: prebuilt container image. Web: static site built by Render. Values marked `sync: false` are entered in the Render dashboard.
 services:
   - type: web
     name: netsim-api
-    runtime: node
+    runtime: image # built and pushed to GHCR by .github/workflows/deploy.yml
+    image:
+      url: ghcr.io/ben2104/netsim-api:latest # deploy hook overrides the tag per commit
+      # Private package? Add `creds: { fromRegistryCreds: { name: <registry credential> } }`
+      # or make the GHCR package public after the first push.
     region: oregon
     plan: free
-    buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/server
-    startCommand: npm run start -w @netsim/server
     healthCheckPath: /api/health
     autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
     envVars:
-      - key: NODE_VERSION
-        value: '22'
       - key: HOST
         value: 0.0.0.0
       - key: LOG_LEVEL

@@ -1,0 +1,12 @@
+# Optional, owner-only: run the built API image locally. Contributors use `npm run dev`.
+#   docker compose up --build
+# Then run the web app on the host: npm run dev -w @netsim/web (Vite proxies /api to :3001).
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    environment:
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - '3001:3001'

@@ -106,14 +106,39 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 3. Run `npm run check` before pushing. CI runs the same plus `build`.
 4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
 
-**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: one job, `check`
-(lint, format, typecheck, test, build). It must be green before merge.
+**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: job `check`
+(lint, format, typecheck, test, build) must be green before merge. A second job, `image`, runs on
+PRs that touch API paths and builds the API container image without pushing it, so a broken
+Dockerfile is caught before merge.
 
-**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never
-on PRs. It calls the Render deploy hooks for `netsim-api` and `netsim-web`; both Render
-services have `autoDeployTrigger: off`, so nothing else deploys. It uses the `production`
-GitHub Environment and the secrets `RENDER_API_DEPLOY_HOOK` and `RENDER_WEB_DEPLOY_HOOK`
-(Render → service → Settings → Deploy Hook). A missing secret skips that deploy with a notice.
+**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
+PRs. It compares the merged commit with its parent and ships only what changed:
+
+| Changed path                                                    | Ships                                                                                                                         |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `apps/server/**`, `.dockerignore`                               | API only: image built and pushed to `ghcr.io/<owner>/netsim-api` (tags: commit sha, `latest`), then Render deploys that image |
+| `apps/web/**`                                                   | Web only: Render rebuilds the static site                                                                                     |
+| `packages/shared/**`, root `package.json` / `package-lock.json` | Both                                                                                                                          |
+
+The front end stays a Render static site (free, CDN) because static sites cannot deploy from an
+image. **You do not need Docker.** Teammates work with `npm run dev` and never build an image;
+CI builds it. Both Render services have `autoDeployTrigger: off`, so nothing else deploys. CD uses
+the `production` GitHub Environment and the secrets `RENDER_API_DEPLOY_HOOK` and
+`RENDER_WEB_DEPLOY_HOOK` (Render → service → Settings → Deploy Hook). A missing secret skips that
+Render call with a notice.
+
+The repo owner can run the API image locally with `docker compose up --build` (optional), then
+`npm run dev -w @netsim/web` for the UI.
+
+### One-time setup (repo owner)
+
+1. Merge a change that touches API paths so CD pushes the first `netsim-api` image to GHCR.
+2. Make the GHCR package public (GitHub → Packages → `netsim-api` → Package settings), or add
+   registry credentials in Render instead.
+3. In Render, create the `netsim-api` image service from `render.yaml` (Blueprint) and the
+   `netsim-web` static site; set `CORS_ORIGIN` and `VITE_API_URL` as above.
+4. Add the two deploy-hook secrets to the `production` environment (Settings → Environments).
+5. Apply the branch protection below, requiring `check`.
 
 Each PR gets a Render preview of the static site only; it calls the production API, so the
 browser may report a CORS error until the API accepts preview origins.

@@ -28,3 +28,30 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Catches a broken Dockerfile before merge; builds only, never pushes.
+  image:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: api
+        run: |
+          # Keep this list in sync with the `changes` job in deploy.yml.
+          if git diff --name-only "${{ github.event.pull_request.base.sha }}" HEAD | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|\.dockerignore$)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No API paths changed; skipping image build"
+          fi
+      - if: steps.api.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@v3
+      - if: steps.api.outputs.changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: false
+          cache-from: type=gha
