@@ -75,6 +75,12 @@ export const HealthResponseSchema = Type.Object({
   version: Type.String(),
 });
 
+export const WelcomeResponseSchema = Type.Object({
+  message: Type.String(),
+  docs: Type.String(),
+  health: Type.String(),
+});
+
 export const ApiErrorSchema = Type.Object({
   error: Type.Object({
     code: Type.String(),
@@ -91,6 +97,7 @@ export type BfsStep = Static<typeof BfsStepSchema>;
 export type Packet = Static<typeof PacketSchema>;
 export type RouteResponse = Static<typeof RouteResponseSchema>;
 export type HealthResponse = Static<typeof HealthResponseSchema>;
+export type WelcomeResponse = Static<typeof WelcomeResponseSchema>;
 export type ApiError = Static<typeof ApiErrorSchema>;
 
 export type ApiErrorCode = 'VALIDATION_ERROR' | 'UNKNOWN_ID' | 'NOT_FOUND' | 'INTERNAL_ERROR';

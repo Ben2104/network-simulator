@@ -21,13 +21,26 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
 
   app.get<{ Reply: Network }>(
     '/network',
-    { schema: { response: { 200: NetworkSchema } } },
+    {
+      schema: {
+        tags: ['network'],
+        summary: 'Fixed topology: nodes and links',
+        response: { 200: NetworkSchema },
+      },
+    },
     async () => network,
   );
 
   app.post<{ Body: RouteRequest; Reply: RouteResponse }>(
     '/route',
-    { schema: { body: RouteRequestSchema, response: { 200: RouteResponseSchema } } },
+    {
+      schema: {
+        tags: ['network'],
+        summary: 'BFS route from client to server, avoiding disabled nodes and links',
+        body: RouteRequestSchema,
+        response: { 200: RouteResponseSchema },
+      },
+    },
     async (req) => {
       const { message, disabledNodeIds, disabledLinkIds } = req.body;
       const unknown = [
