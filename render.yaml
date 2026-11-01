@@ -1,5 +1,5 @@
 # Render Blueprint: https://render.com/docs/blueprint-spec
-# Two services from one repo. Values marked `sync: false` are entered in the Render dashboard.
+# API only; the front end deploys to Vercel (see README). Values marked `sync: false` are entered in the Render dashboard.
 services:
   - type: web
     name: netsim-api
@@ -18,22 +18,4 @@ services:
       - key: LOG_LEVEL
         value: info
       - key: CORS_ORIGIN
-        sync: false # e.g. https://netsim-web.onrender.com
-
-  - type: web
-    name: netsim-web
-    runtime: static
-    buildCommand: npm ci && npm run build -w @netsim/shared && npm run build -w @netsim/web
-    staticPublishPath: apps/web/dist
-    autoDeployTrigger: off # deploys come from .github/workflows/deploy.yml
-    previews:
-      generation: automatic # static site only; netsim-api previews stay off
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: NODE_VERSION
-        value: '22'
-      - key: VITE_API_URL
-        sync: false # e.g. https://netsim-api.onrender.com
+        sync: false # comma-separated allowed origins, e.g. your Vercel URL

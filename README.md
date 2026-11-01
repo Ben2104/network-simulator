@@ -13,7 +13,7 @@ or roads and send again to watch it reroute.
 > show an illustrative BFS route.
 
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
-shared TypeBox contract · npm workspaces · Render.
+shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
 
 ## Quick start
 
@@ -90,13 +90,10 @@ Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RA
 
 ## Deployment
 
-Render → **New → Blueprint** → select this repo. Then in the dashboard:
-
-1. `netsim-web` → set `VITE_API_URL` = API URL (e.g. `https://netsim-api.onrender.com`),
-   redeploy.
-2. `netsim-api` → set `CORS_ORIGIN` = static site URL.
-
-No secrets. Free API instance sleeps when idle; warm it up before presenting.
+The **API** runs on Render (`render.yaml`, native Node service). The **front end** runs on Vercel
+through Vercel's own git integration; this repo's workflows do not deploy it. See the one-time
+setup under Contributing. No secrets in the repo. Free API instance sleeps when idle; warm it up
+before presenting.
 
 ## Contributing
 
@@ -106,17 +103,37 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 3. Run `npm run check` before pushing. CI runs the same plus `build`.
 4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
 
-**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: one job, `check`
-(lint, format, typecheck, test, build). It must be green before merge.
+**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: job `check`
+(lint, format, typecheck, test, build for shared, server and web) must be green before merge.
+Runs on `main` are never cancelled; only superseded PR runs are.
 
-**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never
-on PRs. It calls the Render deploy hooks for `netsim-api` and `netsim-web`; both Render
-services have `autoDeployTrigger: off`, so nothing else deploys. It uses the `production`
-GitHub Environment and the secrets `RENDER_API_DEPLOY_HOOK` and `RENDER_WEB_DEPLOY_HOOK`
-(Render → service → Settings → Deploy Hook). A missing secret skips that deploy with a notice.
+**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
+PRs. It compares the CI run's head commit with its parent. If `apps/server/**`,
+`packages/shared/**`, root `package.json` / `package-lock.json` or `tsconfig.base.json` changed, it
+builds shared and server to prove they build, then calls the Render deploy hook for `netsim-api`
+(`autoDeployTrigger: off`, so nothing else deploys it). Front-end-only changes deploy nothing from
+this workflow; Vercel handles them. CD uses the `production` GitHub Environment and the secret
+`RENDER_API_DEPLOY_HOOK`; a missing secret skips the deploy with a notice.
 
-Each PR gets a Render preview of the static site only; it calls the production API, so the
-browser may report a CORS error until the API accepts preview origins.
+### One-time setup (repo owner)
+
+**Render (API):**
+
+1. Render → **New → Blueprint** → select this repo (creates `netsim-api`).
+2. Set `CORS_ORIGIN` to the Vercel site URL (comma-separated for several origins).
+3. Service → Settings → Deploy Hook: copy the URL into the `production` environment secret
+   `RENDER_API_DEPLOY_HOOK` (GitHub → Settings → Environments).
+
+**Vercel (front end):**
+
+1. Import this repo and leave **Root Directory** blank (the repo root). Build settings, output
+   directory and the ignored-build-step check (skips builds when nothing front-end changed) come
+   from [`vercel.json`](vercel.json).
+2. In the dashboard set only the env var `VITE_API_URL` = the Render API URL (e.g.
+   `https://netsim-api.onrender.com`).
+
+Then apply the branch protection below, requiring `check`.
+
 [CODEOWNERS](.github/CODEOWNERS) requests the area owner as reviewer; their approval is not
 mandatory.
 

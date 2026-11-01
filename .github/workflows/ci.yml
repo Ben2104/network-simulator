@@ -10,7 +10,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # main runs are never cancelled: deploy diffs one commit per run
 
 jobs:
   check:

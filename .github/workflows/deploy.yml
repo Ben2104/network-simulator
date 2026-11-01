@@ -13,26 +13,59 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+# Only after a green CI run of a push to main; never for PRs.
+# API only: the front end deploys to Vercel through its own git integration.
 jobs:
-  deploy:
-    # Only after a green CI run of a push to main; never for PRs.
+  changes:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      api: ${{ steps.diff.outputs.api }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+      - id: diff
+        run: |
+          # Diffs the CI run's head commit against its parent.
+          if files=$(git diff --name-only HEAD^ HEAD 2>/dev/null); then
+            echo "$files"
+          else
+            echo "::notice::No parent commit to diff; deploying the API"
+            files="package.json"
+          fi
+          api=false
+          echo "$files" | grep -Eq '^(apps/server/|packages/shared/|package(-lock)?\.json$|tsconfig\.base\.json$)' && api=true
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "api changed: $api"
+
+  deploy-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: production
     env:
       RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
-      RENDER_WEB_DEPLOY_HOOK: ${{ secrets.RENDER_WEB_DEPLOY_HOOK }}
     steps:
-      - name: Trigger Render deploys
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Prove shared and server build
+        run: npm run build -w @netsim/shared && npm run build -w @netsim/server
+      - name: Trigger Render deploy
         run: |
-          # Hook URLs are credentials: read from env only, never echoed.
-          for name in RENDER_API_DEPLOY_HOOK RENDER_WEB_DEPLOY_HOOK; do
-            url="${!name}"
-            if [ -z "$url" ]; then
-              echo "::notice::$name is not set; skipping that deploy"
-              continue
-            fi
-            curl -fsS -o /dev/null -X POST "$url"
-            echo "Triggered $name"
-          done
+          # Hook URL is a credential: read from env only, never echoed.
+          if [ -z "$RENDER_API_DEPLOY_HOOK" ]; then
+            echo "::notice::RENDER_API_DEPLOY_HOOK is not set; skipping API deploy"
+            exit 0
+          fi
+          curl -fsS -o /dev/null -X POST "$RENDER_API_DEPLOY_HOOK"
+          echo "Triggered API deploy"
