@@ -23,7 +23,7 @@ export function NetworkGraph(props: Props) {
       className="graph"
       viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
       role="img"
-      aria-label="Simulated network graph"
+      aria-label="Simulated West Coast network graph"
     >
       {network.links.map((link) => {
         const a = pos.get(link.source)!;
@@ -44,7 +44,7 @@ export function NetworkGraph(props: Props) {
               y2={b.y}
               onClick={() => props.onToggleLink(link.id)}
             >
-              <title>{`Link ${link.source} ↔ ${link.target} (click to toggle)`}</title>
+              <title>{`${link.source} ↔ ${link.target} · ${link.distanceKm} km (click to toggle)`}</title>
             </line>
           </g>
         );
@@ -69,7 +69,9 @@ export function NetworkGraph(props: Props) {
             role={isRouter ? 'button' : undefined}
             tabIndex={isRouter ? 0 : undefined}
             aria-pressed={isRouter ? disabledNodeIds.has(node.id) : undefined}
-            aria-label={isRouter ? `${node.label}, click to toggle` : node.label}
+            aria-label={
+              isRouter ? `${node.label} station, ${node.place}. Toggle offline.` : node.label
+            }
             onKeyDown={
               isRouter
                 ? (e) => (e.key === 'Enter' || e.key === ' ') && props.onToggleNode(node.id)
