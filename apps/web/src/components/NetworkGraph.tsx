@@ -1,4 +1,4 @@
-import type { Network } from '@netsim/shared';
+import { MAP_HEIGHT, MAP_WIDTH, project, type Network } from '@netsim/shared';
 
 interface Props {
   network: Network;
@@ -10,16 +10,24 @@ interface Props {
   onToggleLink: (id: string) => void;
 }
 
-/** Static SVG renderer. BFS replay and packet animation layer on top of this in later issues. */
+/**
+ * Static SVG renderer. Positions come from the shared projection so they match the 3D scene.
+ * BFS replay and packet animation layer on top of this in later issues.
+ */
 export function NetworkGraph(props: Props) {
   const { network, disabledNodeIds, disabledLinkIds, pathLinkIds, visitedNodeIds } = props;
-  const byId = new Map(network.nodes.map((n) => [n.id, n]));
+  const pos = new Map(network.nodes.map((n) => [n.id, project(n.lat, n.lon)]));
 
   return (
-    <svg className="graph" viewBox="0 0 1000 600" role="img" aria-label="Simulated network graph">
+    <svg
+      className="graph"
+      viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+      role="img"
+      aria-label="Simulated network graph"
+    >
       {network.links.map((link) => {
-        const a = byId.get(link.source)!;
-        const b = byId.get(link.target)!;
+        const a = pos.get(link.source)!;
+        const b = pos.get(link.target)!;
         const cls = disabledLinkIds.has(link.id)
           ? 'disabled'
           : pathLinkIds.has(link.id)
@@ -42,6 +50,7 @@ export function NetworkGraph(props: Props) {
         );
       })}
       {network.nodes.map((node) => {
+        const p = pos.get(node.id)!;
         const isRouter = node.kind === 'router';
         const cls = [
           'node',
@@ -55,7 +64,7 @@ export function NetworkGraph(props: Props) {
           <g
             key={node.id}
             className={cls}
-            transform={`translate(${node.x} ${node.y})`}
+            transform={`translate(${p.x} ${p.y})`}
             onClick={isRouter ? () => props.onToggleNode(node.id) : undefined}
             role={isRouter ? 'button' : undefined}
             tabIndex={isRouter ? 0 : undefined}
@@ -67,8 +76,8 @@ export function NetworkGraph(props: Props) {
                 : undefined
             }
           >
-            <circle r={isRouter ? 28 : 36} />
-            <text y={isRouter ? 48 : 58} textAnchor="middle">
+            <circle r={isRouter ? 8 : 13} />
+            <text x={isRouter ? 12 : 17} y={4}>
               {node.label}
             </text>
           </g>

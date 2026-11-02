@@ -8,7 +8,6 @@ import {
   type RouteResponse,
 } from '@netsim/shared';
 import { findRoute } from '../graph/bfs.js';
-import { toPackets } from '../graph/packets.js';
 import { HttpError } from '../errors.js';
 
 export interface NetworkRoutesOptions {
@@ -42,16 +41,16 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
       },
     },
     async (req) => {
-      const { message, disabledNodeIds, disabledLinkIds } = req.body;
+      const { fromNodeId = network.clientId, disabledNodeIds, disabledLinkIds } = req.body;
       const unknown = [
-        ...disabledNodeIds.filter((id) => !nodeIds.has(id)),
+        ...[fromNodeId, ...disabledNodeIds].filter((id) => !nodeIds.has(id)),
         ...disabledLinkIds.filter((id) => !linkIds.has(id)),
       ];
       if (unknown.length > 0) {
         throw new HttpError(400, 'UNKNOWN_ID', `Unknown node or link IDs: ${unknown.join(', ')}`);
       }
 
-      const result = findRoute(network, network.clientId, network.serverId, {
+      const result = findRoute(network, fromNodeId, network.serverId, {
         disabledNodeIds: new Set(disabledNodeIds),
         disabledLinkIds: new Set(disabledLinkIds),
       });
@@ -60,7 +59,6 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
         visitOrder: result.visitOrder,
         path: result.path,
         linkPath: result.linkPath,
-        packets: result.found ? toPackets(message) : [],
       };
     },
   );

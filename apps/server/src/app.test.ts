@@ -39,51 +39,79 @@ describe('API', () => {
     expect(res.json()).toMatchObject({ status: 'ok' });
   });
 
-  it('GET /api/network returns the topology', async () => {
+  it('GET /api/network returns the v2 topology', async () => {
     const net = (await app.inject({ method: 'GET', url: '/api/network' })).json<Network>();
     expect(net.clientId).toBe('client');
     expect(net.nodes.length).toBeGreaterThan(2);
+    for (const node of net.nodes) {
+      expect(node).toEqual(
+        expect.objectContaining({
+          lat: expect.any(Number),
+          lon: expect.any(Number),
+          place: expect.any(String),
+        }),
+      );
+    }
+    for (const link of net.links) expect(link.distanceKm).toBeGreaterThanOrEqual(0);
   });
 
-  it('POST /api/route routes and packetizes the message', async () => {
-    const res = await route({
-      message: 'hello network!!! :)',
-      disabledNodeIds: [],
-      disabledLinkIds: [],
-    });
+  it('POST /api/route routes from the client by default', async () => {
+    const res = await route({ disabledNodeIds: [], disabledLinkIds: [] });
     expect(res.statusCode).toBe(200);
     const body = res.json<RouteResponse>();
     expect(body.status).toBe('routed');
     expect(body.path.at(0)).toBe('client');
     expect(body.path.at(-1)).toBe('server');
-    expect(body.packets.map((p) => p.payload).join('')).toBe('hello network!!! :)');
+    expect(body.linkPath).toHaveLength(body.path.length - 1);
+    expect(body).not.toHaveProperty('packets');
+  });
+
+  it('POST /api/route starts at fromNodeId', async () => {
+    const body = (
+      await route({ fromNodeId: 'r4', disabledNodeIds: [], disabledLinkIds: [] })
+    ).json<RouteResponse>();
+    expect(body.status).toBe('routed');
+    expect(body.visitOrder.at(0)).toEqual({
+      nodeId: 'r4',
+      parentId: null,
+      viaLinkId: null,
+      depth: 0,
+    });
+    expect(body.path).toEqual(['r4', 'r6', 'server']);
   });
 
   it('POST /api/route reroutes and reports unreachable', async () => {
     const rerouted = (
-      await route({ message: 'hi', disabledNodeIds: ['r6'], disabledLinkIds: [] })
+      await route({ disabledNodeIds: ['r6'], disabledLinkIds: [] })
     ).json<RouteResponse>();
     expect(rerouted.path).not.toContain('r6');
     const cut = (
-      await route({ message: 'hi', disabledNodeIds: ['r6', 'r7'], disabledLinkIds: [] })
+      await route({ disabledNodeIds: ['r6', 'r7'], disabledLinkIds: [] })
     ).json<RouteResponse>();
     expect(cut.status).toBe('unreachable');
-    expect(cut.packets).toEqual([]);
+    expect(cut.path).toEqual([]);
+    expect(cut.linkPath).toEqual([]);
+    expect(cut.visitOrder.length).toBeGreaterThan(0);
   });
 
   it.each([
-    ['empty message', { message: '', disabledNodeIds: [], disabledLinkIds: [] }],
-    ['message too long', { message: 'x'.repeat(141), disabledNodeIds: [], disabledLinkIds: [] }],
-    ['missing fields', { message: 'hi' }],
-    ['extra fields', { message: 'hi', disabledNodeIds: [], disabledLinkIds: [], hack: true }],
+    ['missing fields', {}],
+    ['extra fields', { disabledNodeIds: [], disabledLinkIds: [], hack: true }],
+    ['the removed v1 message field', { message: 'hi', disabledNodeIds: [], disabledLinkIds: [] }],
+    ['a malformed fromNodeId', { fromNodeId: 'R4!', disabledNodeIds: [], disabledLinkIds: [] }],
+    ['duplicate disabled IDs', { disabledNodeIds: ['r1', 'r1'], disabledLinkIds: [] }],
   ])('rejects %s with VALIDATION_ERROR', async (_, payload) => {
     const res = await route(payload);
     expect(res.statusCode).toBe(400);
     expect(res.json<ApiError>().error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('rejects unknown IDs with UNKNOWN_ID', async () => {
-    const res = await route({ message: 'hi', disabledNodeIds: ['r99'], disabledLinkIds: [] });
+  it.each([
+    ['disabled node', { disabledNodeIds: ['r99'], disabledLinkIds: [] }],
+    ['disabled link', { disabledNodeIds: [], disabledLinkIds: ['r1-r99'] }],
+    ['fromNodeId', { fromNodeId: 'r99', disabledNodeIds: [], disabledLinkIds: [] }],
+  ])('rejects an unknown %s with UNKNOWN_ID', async (_, payload) => {
+    const res = await route(payload);
     expect(res.statusCode).toBe(400);
     expect(res.json<ApiError>().error.code).toBe('UNKNOWN_ID');
   });
