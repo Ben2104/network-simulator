@@ -31,7 +31,8 @@ function buildAdjacency(network: Network, failures: FailureState): Map<string, E
     a.push({ to: link.target, linkId: link.id });
     b.push({ to: link.source, linkId: link.id });
   }
-  for (const edges of adj.values()) edges.sort((x, y) => x.to.localeCompare(y.to));
+  // Code-unit order, not localeCompare: results must not depend on the server's locale.
+  for (const edges of adj.values()) edges.sort((x, y) => (x.to < y.to ? -1 : x.to > y.to ? 1 : 0));
   return adj;
 }
 
