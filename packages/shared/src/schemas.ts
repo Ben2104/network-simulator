@@ -18,15 +18,19 @@ export const NetworkNodeSchema = Type.Object({
   id: Id,
   label: Type.String(),
   kind: NodeKindSchema,
-  /** Layout position in a 1000x600 viewBox. Owned by the backend so every client renders the same picture. */
-  x: Type.Number(),
-  y: Type.Number(),
+  /** Approximate real-world location. Projected to the map with `project()`. */
+  lat: Type.Number({ minimum: -90, maximum: 90 }),
+  lon: Type.Number({ minimum: -180, maximum: 180 }),
+  /** Human-readable place, e.g. "Long Beach, CA". */
+  place: Type.String(),
 });
 
 export const NetworkLinkSchema = Type.Object({
   id: Id,
   source: Id,
   target: Id,
+  /** Great-circle distance, display only. BFS ignores it. */
+  distanceKm: Type.Number({ minimum: 0 }),
 });
 
 export const NetworkSchema = Type.Object({
@@ -38,7 +42,8 @@ export const NetworkSchema = Type.Object({
 
 export const RouteRequestSchema = Type.Object(
   {
-    message: Type.String({ minLength: 1, maxLength: LIMITS.messageMaxLength }),
+    /** Start node. Defaults to the client lot. Enables the live-reroute stretch goal. */
+    fromNodeId: Type.Optional(Id),
     disabledNodeIds: Type.Array(Id, { maxItems: LIMITS.maxDisabledIds, uniqueItems: true }),
     disabledLinkIds: Type.Array(Id, { maxItems: LIMITS.maxDisabledIds, uniqueItems: true }),
   },
@@ -52,21 +57,48 @@ export const BfsStepSchema = Type.Object({
   depth: Type.Integer({ minimum: 0 }),
 });
 
-export const PacketSchema = Type.Object({
-  id: Type.String(),
-  seq: Type.Integer({ minimum: 0 }),
-  payload: Type.String(),
-});
-
 export const RouteResponseSchema = Type.Object({
   status: Type.Union([Type.Literal('routed'), Type.Literal('unreachable')]),
-  /** Order in which BFS dequeued nodes. Drives the "search" visualization. */
+  /** Order in which BFS dequeued nodes. Drives the search visualization. */
   visitOrder: Type.Array(BfsStepSchema),
-  /** Node IDs from client to server. Empty when unreachable. */
+  /** Node IDs from start to server. Empty when unreachable. */
   path: Type.Array(Id),
   /** Link IDs along `path` (length = path.length - 1). */
   linkPath: Type.Array(Id),
-  packets: Type.Array(PacketSchema),
+});
+
+export const PacketizeRequestSchema = Type.Union([
+  Type.Object(
+    {
+      source: Type.Literal('file'),
+      fileName: Type.String({ minLength: 1, maxLength: LIMITS.fileNameMaxLength }),
+      sizeBytes: Type.Integer({ minimum: 1, maximum: LIMITS.fileMaxBytes }),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      source: Type.Literal('message'),
+      message: Type.String({ minLength: 1, maxLength: LIMITS.messageMaxLength }),
+    },
+    { additionalProperties: false },
+  ),
+]);
+
+export const CarSchema = Type.Object({
+  id: Type.String(),
+  seq: Type.Integer({ minimum: 0 }),
+  /** Inclusive packet index range carried by this car. */
+  firstPacket: Type.Integer({ minimum: 0 }),
+  lastPacket: Type.Integer({ minimum: 0 }),
+  bytes: Type.Integer({ minimum: 1 }),
+});
+
+export const PacketizeResponseSchema = Type.Object({
+  totalBytes: Type.Integer({ minimum: 1 }),
+  packetSizeBytes: Type.Integer({ minimum: 1 }),
+  packetCount: Type.Integer({ minimum: 1 }),
+  cars: Type.Array(CarSchema),
 });
 
 export const HealthResponseSchema = Type.Object({
@@ -88,8 +120,10 @@ export type NetworkLink = Static<typeof NetworkLinkSchema>;
 export type Network = Static<typeof NetworkSchema>;
 export type RouteRequest = Static<typeof RouteRequestSchema>;
 export type BfsStep = Static<typeof BfsStepSchema>;
-export type Packet = Static<typeof PacketSchema>;
 export type RouteResponse = Static<typeof RouteResponseSchema>;
+export type PacketizeRequest = Static<typeof PacketizeRequestSchema>;
+export type Car = Static<typeof CarSchema>;
+export type PacketizeResponse = Static<typeof PacketizeResponseSchema>;
 export type HealthResponse = Static<typeof HealthResponseSchema>;
 export type ApiError = Static<typeof ApiErrorSchema>;
 

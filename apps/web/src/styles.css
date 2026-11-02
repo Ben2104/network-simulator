@@ -131,31 +131,32 @@ button:disabled {
   border-radius: 8px;
   width: 100%;
   height: auto;
+  max-height: 80vh;
   display: block;
 }
 
 .link line {
   stroke: var(--color-text-muted);
-  stroke-width: 4;
+  stroke-width: 3;
 }
 .link .hit {
   stroke: transparent;
-  stroke-width: 20;
+  stroke-width: 14;
   cursor: pointer;
 }
 .link.on-path line:not(.hit) {
   stroke: var(--color-route);
-  stroke-width: 6;
+  stroke-width: 5;
 }
 .link.disabled line:not(.hit) {
   stroke: var(--color-danger);
-  stroke-dasharray: 8 8;
+  stroke-dasharray: 6 6;
 }
 
 .node circle {
   fill: var(--color-bg);
   stroke: var(--color-explore);
-  stroke-width: 3;
+  stroke-width: 2;
 }
 .node.client circle,
 .node.server circle {
@@ -174,8 +175,8 @@ button:disabled {
 }
 .node text {
   fill: var(--color-text);
-  font-size: 18px;
+  font-size: 12px;
 }
 .node:focus-visible circle {
-  stroke-width: 6;
+  stroke-width: 4;
 }

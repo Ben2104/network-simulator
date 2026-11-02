@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { LIMITS, type Network, type RouteResponse } from '@netsim/shared';
+import type { Network, RouteResponse } from '@netsim/shared';
 import { api, ApiRequestError } from './api/client';
 import { NetworkGraph } from './components/NetworkGraph';
 
@@ -14,7 +14,6 @@ export function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
-  const [message, setMessage] = useState('Hello, server!');
   const [result, setResult] = useState<RouteResponse | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -41,7 +40,6 @@ export function App() {
     try {
       setResult(
         await api.route({
-          message,
           disabledNodeIds: [...disabledNodeIds],
           disabledLinkIds: [...disabledLinkIds],
         }),
@@ -65,8 +63,8 @@ export function App() {
       <header>
         <h1>Network Route Simulator</h1>
         <p className="subtitle">
-          An educational simulation: virtual routers, breadth-first search. No real network traffic
-          is routed.
+          Illustrative network — not real internet routing. BFS picks the fewest hops, not the
+          shortest distance.
         </p>
       </header>
 
@@ -87,15 +85,7 @@ export function App() {
       </section>
 
       <form className="panel controls" onSubmit={send}>
-        <label htmlFor="message">Message</label>
-        <input
-          id="message"
-          value={message}
-          maxLength={LIMITS.messageMaxLength}
-          onChange={(e) => setMessage(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={!network || sending || message.length === 0}>
+        <button type="submit" disabled={!network || sending}>
           {sending ? 'Routing…' : 'Send'}
         </button>
         <button type="button" className="secondary" onClick={reset}>
@@ -107,8 +97,7 @@ export function App() {
         {sendError && <p className="status error">{sendError}</p>}
         {result?.status === 'routed' && (
           <p className="status ok">
-            Route found ({result.path.length - 1} hops, {result.packets.length} packets):{' '}
-            <strong>{result.path.join(' → ')}</strong>
+            Route found ({result.path.length - 1} hops): <strong>{result.path.join(' → ')}</strong>
           </p>
         )}
         {result?.status === 'unreachable' && (
@@ -117,7 +106,7 @@ export function App() {
           </p>
         )}
         {!result && !sendError && (
-          <p className="status">Click a router or link to break it, then send a message.</p>
+          <p className="status">Click a router or link to break it, then press Send.</p>
         )}
       </section>
     </main>

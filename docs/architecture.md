@@ -359,17 +359,17 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 
 ## Implementation status
 
-| Area                                   | Status                                   |
-| -------------------------------------- | ---------------------------------------- |
-| Monorepo, CI, Render blueprint         | Done                                     |
-| Shared contract, error handling        | Done (v1: x/y nodes, `message` on route) |
-| BFS + tests                            | Done on 9-node demo graph                |
-| 2D SVG view, send/reset, toggles       | Done (foundation)                        |
-| West Coast topology, lat/lon, distance | To do                                    |
-| `/packetize`, `fromNodeId`             | To do                                    |
-| `sim/` reducer + timeline              | To do                                    |
-| 3D scene, cars, camera                 | To do                                    |
-| Component + E2E tests                  | To do                                    |
+| Area                                   | Status                       |
+| -------------------------------------- | ---------------------------- |
+| Monorepo, CI, Render blueprint         | Done                         |
+| Shared contract, error handling        | Done (v2; freeze pending #4) |
+| BFS + tests                            | Done on 9-node demo graph    |
+| 2D SVG view, send/reset, toggles       | Done (foundation)            |
+| West Coast topology, lat/lon, distance | To do                        |
+| `/packetize`, `fromNodeId`             | To do                        |
+| `sim/` reducer + timeline              | To do                        |
+| 3D scene, cars, camera                 | To do                        |
+| Component + E2E tests                  | To do                        |
 
 ## Roadmap
 

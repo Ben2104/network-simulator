@@ -117,8 +117,9 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 ## Status
 
 Foundation done: monorepo, CI, Render blueprint, shared contract, BFS with tests, 2D SVG view
-with send/reset and toggles on a 9-node demo graph. The v1 code still uses `x/y` nodes and
-`message` on `/route`.
+with send/reset and toggles on a 9-node demo graph. The shared contract is v2 (lat/lon nodes,
+`distanceKm` links, `/packetize` schemas, `fromNodeId` on `/route`, `project()`); the demo graph
+uses placeholder coordinates until the West Coast topology lands.
 
 Next ([Plan 1](docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md)): West Coast
 topology (19 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
