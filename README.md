@@ -12,26 +12,35 @@ or roads and send again to watch it reroute.
 > immediately deleted — never stored. Real bytes take whatever internet path ISPs choose; the cars
 > show an illustrative BFS route.
 
+## Live
+
+- Website: https://network-simulator-xi.vercel.app/
+- API docs (Swagger UI): https://network-simulator-xf2s.onrender.com/docs
+
+The API runs on Render's free tier, so the first request after idle can take about a minute.
+
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
-shared TypeBox contract · npm workspaces · Render.
+shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
 
 ## Quick start
 
-Requires Node 20.19+ (22 recommended, see `.nvmrc`).
+**Prerequisites:** Node 22 (see `.nvmrc`; 20.19+ also works) and npm.
 
 ```bash
+nvm use                                          # picks the version from .nvmrc
 npm install
+cp apps/server/.env.example apps/server/.env     # optional: defaults work locally
+cp apps/web/.env.example apps/web/.env           # optional
 npm run dev
+npm run check                                    # before pushing: lint, format, types, tests
 ```
 
 - Web: http://localhost:5173
-- API: http://localhost:3001/api/health
+- API: http://localhost:3001 (welcome message), http://localhost:3001/docs (Swagger UI)
 
 `npm run dev` builds the shared package, then runs three processes: shared `tsc --watch`, API
 (`tsx watch`), and Vite. Vite proxies `/api` to port 3001, so no env setup is needed locally.
-
-Optional: copy `apps/server/.env.example` → `apps/server/.env` and
-`apps/web/.env.example` → `apps/web/.env` to override defaults.
+Every env variable each app reads is listed, with a comment, in its `.env.example`.
 
 ## Scripts (root)
 
@@ -50,13 +59,16 @@ Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/sh
 
 ## Layout
 
-```
-apps/server      Fastify API (topology, BFS, packetization)
-apps/web         React UI: 3D scene (scene3d/), 2D fallback (view2d/), sim state + timeline (sim/)
-packages/shared  API schemas, types, limits, lat/lon projection (used by both apps)
-docs/            architecture.md, design spec, implementation plans, Stitch UI prompt
-render.yaml      Render deployment blueprint
-```
+| Path              | Contents                                                                     |
+| ----------------- | ---------------------------------------------------------------------------- |
+| `apps/server`     | Fastify API (topology, BFS, packetization)                                   |
+| `apps/web`        | React UI: 3D scene (`scene3d/`), 2D fallback (`view2d/`), sim state (`sim/`) |
+| `packages/shared` | API schemas, types, limits, lat/lon projection (used by both apps)           |
+| `docs/`           | `architecture.md`, design spec, implementation plans, Stitch UI prompt       |
+| `render.yaml`     | Render deployment blueprint                                                  |
+
+The API contract lives in `packages/shared/src/schemas.ts` and is described in
+[docs/architecture.md](docs/architecture.md#api-contract).
 
 ## Architecture
 
@@ -88,15 +100,32 @@ contract, error codes, limits, config, and deployment details. Summary:
 
 Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RATE_LIMITED` 429).
 
+### API docs and logs
+
+- `GET /` returns a welcome message with links to `/docs` and `/api/health`.
+- `/docs` is a Swagger UI generated from the route schemas; the raw OpenAPI document is at `/docs/json`.
+- Logs are pretty-printed by default, one line per request. Set `LOG_FORMAT=json` for raw JSON
+  lines; `LOG_LEVEL` still applies.
+
+```
+$ curl localhost:3001/
+{"message":"Welcome to Network Simulator","docs":"/docs","health":"/api/health"}
+
+[13:44:41] INFO: incoming request
+    reqId: "req-1"
+    req: { "method": "GET", "url": "/", ... }
+[13:44:41] INFO: request completed
+    reqId: "req-1"
+    res: { "statusCode": 200 }
+    responseTime: 2.87
+```
+
 ## Deployment
 
-Render → **New → Blueprint** → select this repo. Then in the dashboard:
-
-1. `netsim-web` → set `VITE_API_URL` = API URL (e.g. `https://netsim-api.onrender.com`),
-   redeploy.
-2. `netsim-api` → set `CORS_ORIGIN` = static site URL.
-
-No secrets. Free API instance sleeps when idle; warm it up before presenting.
+The **API** runs on Render (`render.yaml`, native Node service). The **front end** runs on Vercel
+through Vercel's own git integration; this repo's workflows do not deploy it. See the one-time
+setup under Contributing. No secrets in the repo. Free API instance sleeps when idle; warm it up
+before presenting.
 
 ## Contributing
 
@@ -104,7 +133,54 @@ No secrets. Free API instance sleeps when idle; warm it up before presenting.
 2. Contract change? Edit `packages/shared/src/schemas.ts` first, then fix both apps until
    `npm run typecheck` passes.
 3. Run `npm run check` before pushing. CI runs the same plus `build`.
-4. Open a PR; one reviewer approval to merge.
+4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
+
+**CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: job `check`
+(lint, format, typecheck, test, build for shared, server and web) must be green before merge.
+Runs on `main` are never cancelled; only superseded PR runs are.
+
+**CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
+PRs. It compares the CI run's head commit with its parent. If `apps/server/**`,
+`packages/shared/**`, root `package.json` / `package-lock.json` or `tsconfig.base.json` changed, it
+builds shared and server to prove they build, then calls the Render deploy hook for `netsim-api`
+(`autoDeployTrigger: off`, so nothing else deploys it). Front-end-only changes deploy nothing from
+this workflow; Vercel handles them. CD uses the `production` GitHub Environment and the secret
+`RENDER_API_DEPLOY_HOOK`; a missing secret skips the deploy with a notice.
+
+### One-time setup (repo owner)
+
+**Render (API):**
+
+1. Render → **New → Blueprint** → select this repo (creates `netsim-api`).
+2. Set `CORS_ORIGIN` to the Vercel site URL (comma-separated for several origins).
+3. Service → Settings → Deploy Hook: copy the URL into the `production` environment secret
+   `RENDER_API_DEPLOY_HOOK` (GitHub → Settings → Environments).
+
+**Vercel (front end):**
+
+1. Import this repo and leave **Root Directory** blank (the repo root). Build settings, output
+   directory and the ignored-build-step check (skips builds when nothing front-end changed) come
+   from [`vercel.json`](vercel.json).
+2. In the dashboard set only the env var `VITE_API_URL` = the Render API URL (e.g.
+   `https://netsim-api.onrender.com`).
+
+Then apply the branch protection below, requiring `check`.
+
+[CODEOWNERS](.github/CODEOWNERS) requests the area owner as reviewer; their approval is not
+mandatory.
+
+### Branch protection (repo owner, applied by hand)
+
+Settings → Branches (or Rules) for `main`:
+
+- [ ] Require a pull request before merging, with 1 approval
+- [ ] Dismiss stale approvals when new commits are pushed
+- [ ] Require conversation resolution before merging
+- [ ] Require status check `check`, and require the branch to be up to date
+- [ ] Do not require review from Code Owners
+- [ ] Block force pushes and branch deletion
+- [ ] Allow squash merge only (Settings → General → Pull Requests)
+- [ ] No admin bypass for the first two weeks
 
 ## Design docs
 

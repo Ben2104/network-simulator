@@ -107,6 +107,12 @@ export const HealthResponseSchema = Type.Object({
   version: Type.String(),
 });
 
+export const WelcomeResponseSchema = Type.Object({
+  message: Type.String(),
+  docs: Type.String(),
+  health: Type.String(),
+});
+
 export const ApiErrorSchema = Type.Object({
   error: Type.Object({
     code: Type.String(),
@@ -125,6 +131,7 @@ export type PacketizeRequest = Static<typeof PacketizeRequestSchema>;
 export type Car = Static<typeof CarSchema>;
 export type PacketizeResponse = Static<typeof PacketizeResponseSchema>;
 export type HealthResponse = Static<typeof HealthResponseSchema>;
+export type WelcomeResponse = Static<typeof WelcomeResponseSchema>;
 export type ApiError = Static<typeof ApiErrorSchema>;
 
 export type ApiErrorCode = 'VALIDATION_ERROR' | 'UNKNOWN_ID' | 'NOT_FOUND' | 'INTERNAL_ERROR';
