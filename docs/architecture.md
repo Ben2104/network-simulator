@@ -45,7 +45,7 @@ Flow: **Submit** a file → server splits it into packets → cars appear in the
 │  errors.ts  uniform { error: { code, message } }                      │
 └───────────────────────────────────────────────────────────────────────┘
             ▲                                         ▲
-            └──── packages/shared: TypeBox schemas, types, LIMITS, project()
+            └──── packages/shared: TypeBox schemas, types, LIMITS, project(), haversineKm()
 ```
 
 ## Repository layout (target)
@@ -54,7 +54,7 @@ Flow: **Submit** a file → server splits it into packets → cars appear in the
 apps/
   server/src/
     app.ts, index.ts, config.ts, errors.ts
-    graph/      topology.ts, bfs.ts, packets.ts, geo.ts (haversine) — no Fastify imports
+    graph/      topology.ts, bfs.ts, packets.ts — no Fastify imports
     routes/     health.ts, network.ts, packetize.ts
   web/src/
     api/        typed fetch client
@@ -63,7 +63,7 @@ apps/
     view2d/     SVG graph, cars as dots, keyboard toggles
     ui/         FilePanel, SendBar, BfsPanel, NetworkStatus, StatusBanner, ViewToggle, Legend
 packages/shared/src/
-  schemas.ts, limits.ts, projection.ts
+  schemas.ts, limits.ts, projection.ts, geo.ts (haversine, shared with web for #31)
 docs/
   architecture.md, design/stitch-prompt.md, superpowers/specs/, superpowers/plans/
 ```
@@ -114,7 +114,7 @@ and 3D place nodes identically.
 
 ### 6. Algorithms isolated from HTTP
 
-`graph/` exports pure functions (`findRoute`, `toCarPlan`, `haversineKm`). Routes only validate,
+`graph/` exports pure functions (`findRoute`, `toCarPlan`; `haversineKm` lives in shared). Routes only validate,
 call, and shape. All algorithm tests run without HTTP.
 
 ### 7. Determinism
@@ -146,7 +146,7 @@ the keyboard/screen-reader path for toggling failures, and the Playwright E2E ta
 ## Network topology (fixed)
 
 19 nodes, 24 roads. Real places at approximate city coordinates; links are hand-picked and
-illustrative. Source of truth will be `apps/server/src/graph/topology.ts`. Link ID =
+illustrative. Source of truth is `apps/server/src/graph/topology.ts`; a test keeps it equal to these tables. Link ID =
 `${source}--${target}`.
 
 | ID              | Label               | Kind   | Place               | Lat     | Lon       |
@@ -368,7 +368,7 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | Shared contract, error handling        | Done (v2; freeze pending #4) |
 | BFS + tests                            | Done on 9-node demo graph    |
 | 2D SVG view, send/reset, toggles       | Done (foundation)            |
-| West Coast topology, lat/lon, distance | To do                        |
+| West Coast topology, lat/lon, distance | Done                         |
 | `/packetize`, `fromNodeId`             | To do                        |
 | `sim/` reducer + timeline              | To do                        |
 | 3D scene, cars, camera                 | To do                        |

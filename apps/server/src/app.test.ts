@@ -39,10 +39,14 @@ describe('API', () => {
     expect(res.json()).toMatchObject({ status: 'ok' });
   });
 
-  it('GET /api/network returns the v2 topology', async () => {
-    const net = (await app.inject({ method: 'GET', url: '/api/network' })).json<Network>();
-    expect(net.clientId).toBe('client');
-    expect(net.nodes.length).toBeGreaterThan(2);
+  it('GET /api/network returns the v2 West Coast topology', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/network' });
+    expect(res.statusCode).toBe(200);
+    const net = res.json<Network>();
+    expect(net.clientId).toBe('csulb');
+    expect(net.serverId).toBe('oregon-dc');
+    expect(net.nodes).toHaveLength(19);
+    expect(net.links).toHaveLength(24);
     for (const node of net.nodes) {
       expect(node).toEqual(
         expect.objectContaining({
@@ -52,7 +56,7 @@ describe('API', () => {
         }),
       );
     }
-    for (const link of net.links) expect(link.distanceKm).toBeGreaterThanOrEqual(0);
+    for (const link of net.links) expect(link.distanceKm).toBeGreaterThan(0);
   });
 
   it('POST /api/route routes from the client by default', async () => {
@@ -60,33 +64,34 @@ describe('API', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json<RouteResponse>();
     expect(body.status).toBe('routed');
-    expect(body.path.at(0)).toBe('client');
-    expect(body.path.at(-1)).toBe('server');
+    expect(body.path.at(0)).toBe('csulb');
+    expect(body.path.at(-1)).toBe('oregon-dc');
     expect(body.linkPath).toHaveLength(body.path.length - 1);
     expect(body).not.toHaveProperty('packets');
   });
 
   it('POST /api/route starts at fromNodeId', async () => {
     const body = (
-      await route({ fromNodeId: 'r4', disabledNodeIds: [], disabledLinkIds: [] })
+      await route({ fromNodeId: 'sacramento', disabledNodeIds: [], disabledLinkIds: [] })
     ).json<RouteResponse>();
     expect(body.status).toBe('routed');
     expect(body.visitOrder.at(0)).toEqual({
-      nodeId: 'r4',
+      nodeId: 'sacramento',
       parentId: null,
       viaLinkId: null,
       depth: 0,
     });
-    expect(body.path).toEqual(['r4', 'r6', 'server']);
+    expect(body.path).toEqual(['sacramento', 'reno', 'klamath-falls', 'bend', 'oregon-dc']);
   });
 
   it('POST /api/route reroutes and reports unreachable', async () => {
     const rerouted = (
-      await route({ disabledNodeIds: ['r6'], disabledLinkIds: [] })
+      await route({ disabledNodeIds: ['oakland'], disabledLinkIds: [] })
     ).json<RouteResponse>();
-    expect(rerouted.path).not.toContain('r6');
+    expect(rerouted.status).toBe('routed');
+    expect(rerouted.path).not.toContain('oakland');
     const cut = (
-      await route({ disabledNodeIds: ['r6', 'r7'], disabledLinkIds: [] })
+      await route({ disabledNodeIds: ['sacramento', 'redding'], disabledLinkIds: [] })
     ).json<RouteResponse>();
     expect(cut.status).toBe('unreachable');
     expect(cut.path).toEqual([]);
@@ -99,7 +104,7 @@ describe('API', () => {
     ['extra fields', { disabledNodeIds: [], disabledLinkIds: [], hack: true }],
     ['the removed v1 message field', { message: 'hi', disabledNodeIds: [], disabledLinkIds: [] }],
     ['a malformed fromNodeId', { fromNodeId: 'R4!', disabledNodeIds: [], disabledLinkIds: [] }],
-    ['duplicate disabled IDs', { disabledNodeIds: ['r1', 'r1'], disabledLinkIds: [] }],
+    ['duplicate disabled IDs', { disabledNodeIds: ['oakland', 'oakland'], disabledLinkIds: [] }],
   ])('rejects %s with VALIDATION_ERROR', async (_, payload) => {
     const res = await route(payload);
     expect(res.statusCode).toBe(400);
@@ -108,7 +113,7 @@ describe('API', () => {
 
   it.each([
     ['disabled node', { disabledNodeIds: ['r99'], disabledLinkIds: [] }],
-    ['disabled link', { disabledNodeIds: [], disabledLinkIds: ['r1-r99'] }],
+    ['disabled link', { disabledNodeIds: [], disabledLinkIds: ['oakland--r99'] }],
     ['fromNodeId', { fromNodeId: 'r99', disabledNodeIds: [], disabledLinkIds: [] }],
   ])('rejects an unknown %s with UNKNOWN_ID', async (_, payload) => {
     const res = await route(payload);
