@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LIMITS, type Network, type RouteResponse } from '@netsim/shared';
 import { api, ApiRequestError } from './api/client';
 import { NetworkGraph } from './components/NetworkGraph';
@@ -15,6 +15,7 @@ const toggle = (set: ReadonlySet<string>, id: string) => {
 export function App() {
   const [network, setNetwork] = useState<Network | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingNetwork, setLoadingNetwork] = useState(true);
   const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
   const [message, setMessage] = useState('Hello, server!');
@@ -23,11 +24,35 @@ export function App() {
   const [sendError, setSendError] = useState<string | null>(null);
   const [view, setView] = useState<NetworkView>('2d');
 
+  const loadNetwork = useCallback(async () => {
+    setLoadingNetwork(true);
+    setLoadError(null);
+    try {
+      setNetwork(await api.getNetwork());
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoadingNetwork(false);
+    }
+  }, []);
+
   useEffect(() => {
+    let active = true;
     api
       .getNetwork()
-      .then(setNetwork)
-      .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : String(e)));
+      .then((loadedNetwork) => {
+        if (active) setNetwork(loadedNetwork);
+      })
+      .catch((error: unknown) => {
+        if (active) setLoadError(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => {
+        if (active) setLoadingNetwork(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const pathLinkIds = useMemo(() => new Set(result?.linkPath), [result]);
@@ -75,8 +100,14 @@ export function App() {
       </header>
 
       <section className="panel" aria-label="Network">
-        {loadError && <p className="status error">Could not load network: {loadError}</p>}
-        {!network && !loadError && <p className="status">Loading network…</p>}
+        {loadError && (
+          <StatusBanner
+            kind="error"
+            message={`Could not load network: ${loadError}`}
+            onRetry={() => void loadNetwork()}
+          />
+        )}
+        {loadingNetwork && !loadError && <StatusBanner kind="loading" message="Loading network…" />}
         {network && (
           <NetworkGraph
             network={network}
