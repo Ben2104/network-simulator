@@ -1,7 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { LIMITS, type Network, type RouteResponse } from '@netsim/shared';
 import { api, ApiRequestError } from './api/client';
 import { NetworkGraph } from './components/NetworkGraph';
+import { SendBar } from './ui/SendBar';
+import { StatusBanner } from './ui/StatusBanner';
+import { ViewToggle, type NetworkView } from './ui/ViewToggle';
 
 const toggle = (set: ReadonlySet<string>, id: string) => {
   const next = new Set(set);
@@ -18,6 +21,7 @@ export function App() {
   const [result, setResult] = useState<RouteResponse | null>(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [view, setView] = useState<NetworkView>('2d');
 
   useEffect(() => {
     api
@@ -34,8 +38,7 @@ export function App() {
     setResult(null); // a stale route on a changed network would be misleading
   };
 
-  const send = async (e: FormEvent) => {
-    e.preventDefault();
+  const send = async () => {
     setSending(true);
     setSendError(null);
     try {
@@ -68,6 +71,7 @@ export function App() {
           An educational simulation: virtual routers, breadth-first search. No real network traffic
           is routed.
         </p>
+        <ViewToggle view={view} onChange={setView} is3dAvailable={false} />
       </header>
 
       <section className="panel" aria-label="Network">
@@ -86,38 +90,42 @@ export function App() {
         )}
       </section>
 
-      <form className="panel controls" onSubmit={send}>
-        <label htmlFor="message">Message</label>
-        <input
-          id="message"
-          value={message}
-          maxLength={LIMITS.messageMaxLength}
-          onChange={(e) => setMessage(e.target.value)}
-          required
-        />
-        <button type="submit" disabled={!network || sending || message.length === 0}>
-          {sending ? 'Routing…' : 'Send'}
-        </button>
+      <SendBar
+        message={message}
+        maxLength={LIMITS.messageMaxLength}
+        onMessageChange={setMessage}
+        onSend={send}
+        disabled={!network}
+        sending={sending}
+      />
+      <div className="panel controls">
         <button type="button" className="secondary" onClick={reset}>
           Reset network
         </button>
-      </form>
+      </div>
 
       <section className="panel" aria-live="polite">
-        {sendError && <p className="status error">{sendError}</p>}
-        {result?.status === 'routed' && (
-          <p className="status ok">
-            Route found ({result.path.length - 1} hops, {result.packets.length} packets):{' '}
-            <strong>{result.path.join(' → ')}</strong>
-          </p>
+        {sending && <StatusBanner kind="searching" message="Searching the network…" />}
+        {!sending && sendError && (
+          <StatusBanner kind="error" message={sendError} onRetry={() => void send()} />
         )}
-        {result?.status === 'unreachable' && (
-          <p className="status error">
-            No route available. BFS explored {result.visitOrder.length} nodes.
-          </p>
+        {!sending && result?.status === 'routed' && (
+          <StatusBanner
+            kind="success"
+            message={`Route found (${result.path.length - 1} hops, ${result.packets.length} packets): ${result.path.join(' → ')}`}
+          />
         )}
-        {!result && !sendError && (
-          <p className="status">Click a router or link to break it, then send a message.</p>
+        {!sending && result?.status === 'unreachable' && (
+          <StatusBanner
+            kind="no-route"
+            message={`No route available. BFS explored ${result.visitOrder.length} nodes.`}
+          />
+        )}
+        {!sending && !result && !sendError && (
+          <StatusBanner
+            kind="idle"
+            message="Click a router or link to break it, then send a message."
+          />
         )}
       </section>
     </main>
