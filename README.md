@@ -44,16 +44,17 @@ Every env variable each app reads is listed, with a comment, in its `.env.exampl
 
 ## Scripts (root)
 
-| Command                | Does                                              |
-| ---------------------- | ------------------------------------------------- |
-| `npm run dev`          | All apps in watch mode                            |
-| `npm run build`        | Build shared → server → web                       |
-| `npm test`             | Vitest (BFS unit + API integration tests)         |
-| `npm run typecheck`    | `tsc --noEmit` in every package                   |
-| `npm run lint`         | ESLint                                            |
-| `npm run format`       | Prettier write                                    |
-| `npm run format:check` | Prettier check                                    |
-| `npm run check`        | lint + format:check + typecheck + test (pre-push) |
+| Command                           | Does                                              |
+| --------------------------------- | ------------------------------------------------- |
+| `npm run dev`                     | All apps in watch mode                            |
+| `npm run build`                   | Build shared → server → web                       |
+| `npm test`                        | Vitest (BFS unit + API integration tests)         |
+| `npm run typecheck`               | `tsc --noEmit` in every package                   |
+| `npm run lint`                    | ESLint                                            |
+| `npm run format`                  | Prettier write                                    |
+| `npm run format:check`            | Prettier check                                    |
+| `npm run check`                   | lint + format:check + typecheck + test (pre-push) |
+| `npm run test:e2e -w @netsim/web` | Playwright: 3D smoke test and no-WebGL fallback   |
 
 Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/shared`).
 
