@@ -84,7 +84,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
-- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same route, every demo.
+- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random equally short route.
 - **3D + 2D.** React Three Fiber scene with an SVG fallback (no WebGL, reduced motion, keyboard
   and screen-reader use). Both render from one pure timeline.
 
