@@ -199,6 +199,12 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
     disabledLinkIds,
     canToggleFailures,
     route: run?.route ?? null,
+    timeline: run?.timeline ?? null,
+    /**
+     * Live sim clock for renderers that animate outside React (the 3D scene reads it in
+     * `useFrame`). Read-only for consumers.
+     */
+    clockRef: clockRef as { readonly current: number },
     frames,
     visitedCount,
     apiError,
