@@ -74,7 +74,8 @@ export function useSimulation(network: Network | null) {
     let last = performance.now();
     let frame = 0;
     const tick = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.1);
+      // Clamp to [0, 0.1] s: a clock that jumps backwards must not rewind the simulation.
+      const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
       last = now;
       const next = Math.min(clockRef.current + dt * speedRef.current, run.timeline.end);
       clockRef.current = next;
