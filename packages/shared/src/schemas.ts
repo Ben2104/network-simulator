@@ -101,6 +101,27 @@ export const PacketizeResponseSchema = Type.Object({
   cars: Type.Array(CarSchema),
 });
 
+/** `POST /api/upload`: what the server measured, then the car plan for that size. */
+export const UploadResponseSchema = Type.Object({
+  /** From the optional `X-File-Name` header; display only, never logged or stored. */
+  fileName: Type.Union([Type.String(), Type.Null()]),
+  bytesReceived: Type.Integer({ minimum: 1 }),
+  /** Human-readable size, e.g. "1.05 MB". */
+  size: Type.String(),
+  limitBytes: Type.Integer(),
+  /** Always true on 200; over-limit uploads get 413. */
+  underLimit: Type.Boolean(),
+  sha256: Type.String({ pattern: '^[0-9a-f]{64}$' }),
+  receivedAt: Type.String({ format: 'date-time' }),
+  region: Type.Literal('oregon'),
+  packetSizeBytes: Type.Integer({ minimum: 1 }),
+  packetCount: Type.Integer({ minimum: 1 }),
+  carCount: Type.Integer({ minimum: 1 }),
+  cars: Type.Array(CarSchema),
+  /** One-line summary, e.g. "essay.pdf is 1.05 MB (under the 10 MB limit): 700 packets in 3 cars." */
+  summary: Type.String(),
+});
+
 export const HealthResponseSchema = Type.Object({
   status: Type.Literal('ok'),
   uptimeSeconds: Type.Number(),
@@ -130,8 +151,15 @@ export type RouteResponse = Static<typeof RouteResponseSchema>;
 export type PacketizeRequest = Static<typeof PacketizeRequestSchema>;
 export type Car = Static<typeof CarSchema>;
 export type PacketizeResponse = Static<typeof PacketizeResponseSchema>;
+export type UploadResponse = Static<typeof UploadResponseSchema>;
 export type HealthResponse = Static<typeof HealthResponseSchema>;
 export type WelcomeResponse = Static<typeof WelcomeResponseSchema>;
 export type ApiError = Static<typeof ApiErrorSchema>;
 
-export type ApiErrorCode = 'VALIDATION_ERROR' | 'UNKNOWN_ID' | 'NOT_FOUND' | 'INTERNAL_ERROR';
+export type ApiErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'UNKNOWN_ID'
+  | 'NOT_FOUND'
+  | 'PAYLOAD_TOO_LARGE'
+  | 'RATE_LIMITED'
+  | 'INTERNAL_ERROR';
