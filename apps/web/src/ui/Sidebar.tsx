@@ -1,13 +1,15 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { Network, PacketizeResponse, RouteResponse } from '@netsim/shared';
 import { LIMITS } from '@netsim/shared';
 import { SPEEDS, type Phase, type Speed, type Upload } from '../sim/useSimulation';
 import { formatBytes } from './copy';
+import { CarMeter, Dropzone } from './Dropzone';
 
 const PRESETS = [
   { name: 'essay.pdf', sizeBytes: 1_048_576 },
   { name: 'photo.jpg', sizeBytes: 5_000_000 },
   { name: 'notes.txt', sizeBytes: 12_000 },
+  { name: 'lecture.mp4', sizeBytes: 9_900_000 },
 ] as const;
 
 export function YourFile(props: {
@@ -15,12 +17,12 @@ export function YourFile(props: {
   upload: Upload | null;
   inputError: string | null;
   onFile: (name: string, size: number) => void;
+  onUploaded: (u: Upload) => void;
   onMessage: (text: string) => void;
   onClear: () => void;
 }) {
   const [text, setText] = useState('');
   const [presets, setPresets] = useState(false);
-  const picker = useRef<HTMLInputElement>(null);
   const { upload } = props;
   const p: PacketizeResponse | undefined = upload?.packets;
 
@@ -39,8 +41,18 @@ export function YourFile(props: {
           <p className="file-name">{upload.label}</p>
           <p className="mono">
             {formatBytes(p.totalBytes)} · {p.packetCount.toLocaleString('en-US')} packets →{' '}
-            {p.cars.length} cars
+            {p.cars.length} car{p.cars.length === 1 ? '' : 's'}
           </p>
+          <CarMeter cars={p.cars.length} />
+          {upload.server && (
+            <div className="upload-result">
+              <p>{upload.server.summary}</p>
+              <p className={upload.server.verified ? 'verified' : 'mismatch'}>
+                {upload.server.verified ? '✓ Verified in Oregon — hash match' : '⚠ Hash mismatch'}{' '}
+                <span className="mono">sha256 {upload.server.sha256.slice(0, 12)}…</span>
+              </p>
+            </div>
+          )}
           {props.phase !== 'routing' &&
             props.phase !== 'searching' &&
             props.phase !== 'driving' && (
@@ -50,63 +62,52 @@ export function YourFile(props: {
             )}
         </>
       ) : (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            props.onMessage(text);
-          }}
-        >
-          <label className="field-label" htmlFor="payload">
-            Enter message or select sample
-          </label>
-          <textarea
-            id="payload"
-            value={text}
-            maxLength={LIMITS.messageMaxLength}
-            placeholder="e.g. a short message for the class (up to 140 characters)"
-            onChange={(e) => setText(e.target.value)}
-          />
-          {props.inputError && <p className="field-error">{props.inputError}</p>}
-          <div className="row">
-            <button type="submit" className="btn primary grow" disabled={text.trim() === ''}>
-              Packetize message
-            </button>
-            <button
-              type="button"
-              className="btn"
-              aria-expanded={presets}
-              onClick={() => setPresets((v) => !v)}
-            >
-              Presets
-            </button>
-          </div>
-          {presets && (
-            <ul className="presets">
-              {PRESETS.map((s) => (
-                <li key={s.name}>
-                  <button type="button" onClick={() => props.onFile(s.name, s.sizeBytes)}>
-                    {s.name} <span>{formatBytes(s.sizeBytes)}</span>
-                  </button>
-                </li>
-              ))}
-              <li>
-                <button type="button" onClick={() => picker.current?.click()}>
-                  Choose a file from this computer… <span>only name and size are used</span>
-                </button>
-              </li>
-            </ul>
-          )}
-          <input
-            ref={picker}
-            type="file"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) props.onFile(f.name, f.size);
-              e.target.value = '';
+        <>
+          <Dropzone disabled={false} onUploaded={props.onUploaded} />
+          <p className="or">or simulate without uploading</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              props.onMessage(text);
             }}
-          />
-        </form>
+          >
+            <label className="field-label" htmlFor="payload">
+              Enter message or select sample
+            </label>
+            <textarea
+              id="payload"
+              value={text}
+              maxLength={LIMITS.messageMaxLength}
+              placeholder="e.g. a short message for the class (up to 140 characters)"
+              onChange={(e) => setText(e.target.value)}
+            />
+            {props.inputError && <p className="field-error">{props.inputError}</p>}
+            <div className="row">
+              <button type="submit" className="btn primary grow" disabled={text.trim() === ''}>
+                Packetize message
+              </button>
+              <button
+                type="button"
+                className="btn"
+                aria-expanded={presets}
+                onClick={() => setPresets((v) => !v)}
+              >
+                Presets
+              </button>
+            </div>
+            {presets && (
+              <ul className="presets">
+                {PRESETS.map((s) => (
+                  <li key={s.name}>
+                    <button type="button" onClick={() => props.onFile(s.name, s.sizeBytes)}>
+                      {s.name} <span>{formatBytes(s.sizeBytes)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </form>
+        </>
       )}
     </section>
   );

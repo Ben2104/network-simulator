@@ -827,3 +827,97 @@ textarea {
   left: 0;
   opacity: 0;
 }
+
+/* Upload */
+.upload {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 12px;
+  border: 2px dashed var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.dropzone:hover,
+.dropzone:focus-visible {
+  border-color: var(--color-primary);
+  outline: none;
+}
+.dropzone.over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.dropzone.busy {
+  cursor: progress;
+}
+.dropzone[aria-disabled='true']:not(.busy) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.dropzone-icon {
+  color: var(--color-primary);
+}
+.dropzone-title {
+  margin: 0;
+  font-size: 14px;
+}
+.dropzone-title u {
+  color: var(--color-primary);
+}
+.dropzone-sub,
+.dropzone-rule {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.dropzone-rule {
+  text-align: center;
+}
+.dropzone progress {
+  width: 100%;
+  accent-color: var(--color-primary);
+}
+.or {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.car-meter {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 3px;
+  margin: 8px 0;
+}
+.car-meter i {
+  height: 8px;
+  border-radius: 2px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+.car-meter i.on {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.upload-result p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+.upload-result .verified {
+  color: var(--color-primary);
+}
+.upload-result .mismatch {
+  color: var(--color-danger-text);
+}

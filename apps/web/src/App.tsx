@@ -139,6 +139,7 @@ export function App() {
               upload={upload}
               inputError={sim.inputError}
               onFile={sim.loadFile}
+              onUploaded={sim.loadUploaded}
               onMessage={sim.loadMessage}
               onClear={sim.changeFile}
             />

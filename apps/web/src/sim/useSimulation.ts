@@ -21,6 +21,14 @@ export type Speed = (typeof SPEEDS)[number];
 export interface Upload {
   label: string;
   packets: PacketizeResponse;
+  /** Set when the file really went to `POST /api/upload` (drag and drop or browse). */
+  server?: {
+    size: string;
+    summary: string;
+    sha256: string;
+    /** Server hash equals the browser's own SHA-256 of the file. */
+    verified: boolean;
+  };
 }
 
 interface Run {
@@ -127,6 +135,15 @@ export function useSimulation(network: Network | null) {
       loadRequest({ source: 'file', fileName, sizeBytes }, fileName),
     [loadRequest],
   );
+  /** A plan computed by the server for a real upload. */
+  const loadUploaded = useCallback(
+    (u: Upload) => {
+      clearRun();
+      setUpload(u);
+      setInputError(null);
+    },
+    [clearRun],
+  );
   const loadMessage = useCallback(
     (message: string) => loadRequest({ source: 'message', message }, 'Message'),
     [loadRequest],
@@ -223,6 +240,7 @@ export function useSimulation(network: Network | null) {
     setSpeed,
     togglePause: () => setPaused((p) => !p),
     loadFile,
+    loadUploaded,
     loadMessage,
     changeFile,
     send,
