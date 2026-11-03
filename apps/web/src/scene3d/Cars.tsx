@@ -1,18 +1,17 @@
-import { memo, useMemo, useRef, useState } from 'react';
-import { Html, Instance, Instances } from '@react-three/drei';
+import { memo, useMemo, useRef, type RefObject } from 'react';
+import { Instance, Instances } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import {
   BoxGeometry,
   BufferAttribute,
   CylinderGeometry,
   OctahedronGeometry,
+  Vector3,
   type BufferGeometry,
-  type Group,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Car } from '@netsim/shared';
-import { formatBytes } from '../ui/copy';
 import { CAR_COLORS } from './palette';
 import { parkedPose, poseAt, type CarPath, type Pose, type World } from './world';
 
@@ -66,6 +65,10 @@ interface Props {
   paths: readonly CarPath[] | null;
   world: World;
   clockRef: { readonly current: number };
+  hover: number | null;
+  onHover: (i: number | null) => void;
+  /** DOM tooltip for the hovered car; positioned here each frame. */
+  tipEl: RefObject<HTMLDivElement | null>;
 }
 
 type Ref = Object3D | null;
@@ -76,15 +79,15 @@ type Ref = Object3D | null;
  * per frame. Beacons float above each car and grow with camera distance so cars stay visible in
  * the overview.
  */
-export const Cars = memo(function Cars({ cars, paths, world, clockRef }: Props) {
+export const Cars = memo(function Cars(props: Props) {
+  const { cars, paths, world, clockRef, hover, onHover, tipEl } = props;
   const geo = useMemo(carGeometries, []);
   const parts = useRef<Ref[][]>([[], [], [], []]);
   const beacons = useRef<Ref[]>([]);
-  const tip = useRef<Group>(null);
-  const [hover, setHover] = useState<number | null>(null);
   const poses = useRef<Pose[]>([]);
+  const v = useMemo(() => new Vector3(), []);
 
-  useFrame(({ camera, clock }) => {
+  useFrame(({ camera, clock, size }) => {
     const t = clockRef.current;
     cars.forEach((car, i) => {
       const path = paths?.[i];
@@ -106,9 +109,13 @@ export const Cars = memo(function Cars({ cars, paths, world, clockRef }: Props) 
         b.scale.setScalar(s * (pose.status === 'driving' ? 1 : 0.7));
       }
     });
-    if (tip.current && hover !== null && poses.current[hover]) {
+    const tip = tipEl.current;
+    if (tip && hover !== null && poses.current[hover]) {
       const p = poses.current[hover]!;
-      tip.current.position.set(p.x, 3, p.z);
+      v.set(p.x, 2, p.z).project(camera);
+      const sx = ((v.x + 1) / 2) * size.width;
+      const sy = ((1 - v.y) / 2) * size.height;
+      tip.style.transform = `translate(${Math.round(sx)}px, ${Math.round(sy)}px) translate(-50%, -120%)`;
     }
   });
 
@@ -124,38 +131,36 @@ export const Cars = memo(function Cars({ cars, paths, world, clockRef }: Props) 
       />
     ));
 
-  const hovered = hover === null ? null : cars[hover];
-
   return (
     <group>
-      <Instances limit={24} range={cars.length} castShadow>
+      <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
         <primitive object={geo.body} attach="geometry" />
         <meshStandardMaterial roughness={0.35} metalness={0.25} />
         {instances(0, (car, i) => ({
           color: color(car.seq),
           onPointerOver: (e: { stopPropagation: () => void }) => {
             e.stopPropagation();
-            setHover(i);
+            onHover(i);
           },
-          onPointerOut: () => setHover((h) => (h === i ? null : h)),
+          onPointerOut: () => onHover(null),
         }))}
       </Instances>
-      <Instances limit={24} range={cars.length}>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.glass} attach="geometry" />
         <meshStandardMaterial color="#1e293b" roughness={0.15} metalness={0.6} />
         {instances(1)}
       </Instances>
-      <Instances limit={24} range={cars.length}>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.wheels} attach="geometry" />
         <meshStandardMaterial color="#111827" roughness={0.8} />
         {instances(2)}
       </Instances>
-      <Instances limit={24} range={cars.length}>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.lights} attach="geometry" />
         <meshBasicMaterial vertexColors toneMapped={false} />
         {instances(3)}
       </Instances>
-      <Instances limit={24} range={cars.length}>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.beacon} attach="geometry" />
         <meshBasicMaterial toneMapped={false} />
         {cars.map((car, i) => (
@@ -168,18 +173,6 @@ export const Cars = memo(function Cars({ cars, paths, world, clockRef }: Props) 
           />
         ))}
       </Instances>
-      {hovered && (
-        <group ref={tip}>
-          <Html center className="car-tip" zIndexRange={[30, 20]}>
-            <b>Car #{String(hovered.seq + 1).padStart(2, '0')}</b>
-            <span>
-              packets {hovered.firstPacket.toLocaleString('en-US')}–
-              {hovered.lastPacket.toLocaleString('en-US')}
-            </span>
-            <span>{formatBytes(hovered.bytes)}</span>
-          </Html>
-        </group>
-      )}
     </group>
   );
 });

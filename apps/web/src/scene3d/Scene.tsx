@@ -1,12 +1,13 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { Car, Network, RouteResponse } from '@netsim/shared';
 import { BFS_STEP_SEC, type Timeline } from '../sim/timeline';
 import type { Phase } from '../sim/useSimulation';
-import { CameraRig, type CameraMode } from './CameraRig';
+import { CameraRig, type CameraMode, type RigApi } from './CameraRig';
 import { Cars } from './Cars';
 import { Ground } from './Ground';
-import { Labels, type LabelItem } from './Labels';
+import { LabelLayer, LabelTracker, type LabelEls, type LabelItem } from './Labels';
+import { formatBytes } from '../ui/copy';
 import { C } from './palette';
 import { ParkingLot } from './ParkingLot';
 import { Road, type RoadState } from './Road';
@@ -30,6 +31,7 @@ export interface SceneProps {
   onToggleLink: (id: string) => void;
   cameraMode: CameraMode;
   onCameraMode: (mode: CameraMode) => void;
+  rigRef: { current: RigApi | null };
 }
 
 /**
@@ -39,6 +41,12 @@ export interface SceneProps {
 export const Scene = memo(function Scene(props: SceneProps) {
   const { network, route, timeline, clockRef, phase } = props;
   const world = useMemo(() => buildWorld(network), [network]);
+  const labelEls = useRef<LabelEls>(new Map());
+  const tipEl = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  const hovered = hover === null ? null : props.cars[hover];
+  const { onCameraMode } = props;
+  const toFree = useCallback(() => onCameraMode('free'), [onCameraMode]);
 
   const paths = useMemo(
     () => (timeline ? timeline.plans.map((p) => carPath(world, network, p)) : null),
@@ -85,11 +93,15 @@ export const Scene = memo(function Scene(props: SceneProps) {
           const lot = n.kind === 'client' ? world.client : world.server;
           return {
             id: n.id,
-            text: n.kind === 'client' ? 'CSULB Parking Lot' : 'US-West Data Center, Oregon',
+            // Same wording as the 2D view and the Figma v2 frames.
+            text:
+              n.kind === 'client'
+                ? 'Sender: CSULB parking lot'
+                : 'Destination: US-West Data Center, Oregon',
             sub:
               n.kind === 'client'
-                ? `Sender · ${carCount} car${carCount === 1 ? '' : 's'}`
-                : 'Destination (server)',
+                ? `client · ${carCount} car${carCount === 1 ? '' : 's'}`
+                : 'server',
             x: lot.center.x,
             y: 9,
             z: lot.center.z,
@@ -130,61 +142,88 @@ export const Scene = memo(function Scene(props: SceneProps) {
   const carsHome = phase !== 'driving' && phase !== 'delivered';
 
   return (
-    <Canvas
-      shadows
-      dpr={[1, 2]}
-      camera={{ fov: 40, near: 0.5, far: 9000, position: [0, 900, 900] }}
-      gl={{ antialias: true, preserveDrawingBuffer: true }}
-      aria-label="3D West Coast network map"
-      data-testid="scene3d"
-    >
-      <color attach="background" args={[C.sky]} />
-      <fog attach="fog" args={[C.sky, 2200, 5200]} />
-      <hemisphereLight args={['#ffffff', '#cfe3d4', 1.1]} />
-      <ambientLight intensity={0.25} />
+    <>
+      <Canvas
+        shadows
+        flat
+        dpr={[1, 2]}
+        camera={{ fov: 40, near: 0.5, far: 9000, position: [0, 900, 900] }}
+        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        aria-label="3D West Coast network map"
+        data-testid="scene3d"
+        onCreated={(state) => {
+          // Dev-only hook for debugging and the E2E smoke test.
+          if (import.meta.env.DEV) (window as unknown as { __r3f?: unknown }).__r3f = state;
+        }}
+      >
+        <color attach="background" args={[C.sky]} />
+        <fog attach="fog" args={[C.sky, 2200, 5200]} />
+        <hemisphereLight args={['#ffffff', '#cfe3d4', 1.1]} />
+        <ambientLight intensity={0.25} />
 
-      <Ground world={world} />
-      {network.links.map((l) => (
-        <Road
-          key={l.id}
-          id={l.id}
-          curve={world.roads.get(l.id)!}
-          state={roadState(l.id)}
-          canToggle={props.canToggle}
-          onToggle={props.onToggleLink}
-        />
-      ))}
-      {network.nodes
-        .filter((n) => n.kind === 'router')
-        .map((n) => (
-          <Station
-            key={n.id}
-            id={n.id}
-            pos={world.pos.get(n.id)!}
-            state={stationState(n.id)}
-            visitAt={visit.get(n.id)?.at ?? null}
-            clockRef={clockRef}
-            roads={roadsAt.get(n.id) ?? []}
+        <Ground world={world} />
+        {network.links.map((l) => (
+          <Road
+            key={l.id}
+            id={l.id}
+            curve={world.roads.get(l.id)!}
+            state={roadState(l.id)}
             canToggle={props.canToggle}
-            onToggle={props.onToggleNode}
+            onToggle={props.onToggleLink}
           />
         ))}
-      <ParkingLot lot={world.client} kind="client" active={carsHome && props.cars.length > 0} />
-      <ParkingLot lot={world.server} kind="server" active={phase === 'delivered'} />
-      <Cars cars={props.cars} paths={paths} world={world} clockRef={clockRef} />
-      <Labels items={labels} />
+        {network.nodes
+          .filter((n) => n.kind === 'router')
+          .map((n) => (
+            <Station
+              key={n.id}
+              id={n.id}
+              pos={world.pos.get(n.id)!}
+              state={stationState(n.id)}
+              visitAt={visit.get(n.id)?.at ?? null}
+              clockRef={clockRef}
+              roads={roadsAt.get(n.id) ?? []}
+              canToggle={props.canToggle}
+              onToggle={props.onToggleNode}
+            />
+          ))}
+        <ParkingLot lot={world.client} kind="client" active={carsHome && props.cars.length > 0} />
+        <ParkingLot lot={world.server} kind="server" active={phase === 'delivered'} />
+        <Cars
+          cars={props.cars}
+          paths={paths}
+          world={world}
+          clockRef={clockRef}
+          hover={hover}
+          onHover={setHover}
+          tipEl={tipEl}
+        />
+        <LabelTracker items={labels} els={labelEls} />
 
-      <CameraRig
-        mode={props.cameraMode}
-        onUserControl={() => props.onCameraMode('free')}
-        phase={phase}
-        overview={overview}
-        client={world.client}
-        server={world.server}
-        paths={paths}
-        clockRef={clockRef}
-      />
-    </Canvas>
+        <CameraRig
+          mode={props.cameraMode}
+          onUserControl={toFree}
+          apiRef={props.rigRef}
+          phase={phase}
+          overview={overview}
+          client={world.client}
+          server={world.server}
+          paths={paths}
+          clockRef={clockRef}
+        />
+      </Canvas>
+      <LabelLayer items={labels} els={labelEls} />
+      {hovered && (
+        <div ref={tipEl} className="car-tip" role="tooltip">
+          <b>Car #{String(hovered.seq + 1).padStart(2, '0')}</b>
+          <span>
+            packets {hovered.firstPacket.toLocaleString('en-US')}–
+            {hovered.lastPacket.toLocaleString('en-US')}
+          </span>
+          <span>{formatBytes(hovered.bytes)}</span>
+        </div>
+      )}
+    </>
   );
 });
 

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import type { CameraMode } from '../scene3d/CameraRig';
+import type { CameraMode, RigApi } from '../scene3d/CameraRig';
 import type { Tone } from './copy';
 
 export type View = '3d' | '2d';
@@ -161,30 +161,53 @@ export function MapControls(props: { zoom: number; onZoom: (z: number) => void }
   );
 }
 
+const MODE_NAME: Record<CameraMode, string> = {
+  auto: 'Auto',
+  overview: 'Overview',
+  follow: 'Follow lead car',
+  free: 'Free',
+};
+
 const CAMERA_MODES: { mode: Exclude<CameraMode, 'free'>; label: string; title: string }[] = [
   { mode: 'auto', label: 'Auto', title: 'Camera follows the action for each phase' },
   { mode: 'overview', label: 'Overview', title: 'Frame the whole network' },
   { mode: 'follow', label: 'Follow lead car', title: 'Chase the car furthest along' },
 ];
 
-export function CameraControls(props: { mode: CameraMode; onMode: (m: CameraMode) => void }) {
+export function CameraControls(props: {
+  mode: CameraMode;
+  onMode: (m: CameraMode) => void;
+  rigRef: { readonly current: RigApi | null };
+}) {
   return (
     <>
-      <div className="chip projection">Projection: 3D equirectangular · north up</div>
-      <div className="camera-modes" role="group" aria-label="Camera">
-        {CAMERA_MODES.map((m) => (
-          <button
-            key={m.mode}
-            type="button"
-            className={props.mode === m.mode ? 'active' : ''}
-            aria-pressed={props.mode === m.mode}
-            title={m.title}
-            onClick={() => props.onMode(m.mode)}
-          >
-            {m.label}
-          </button>
-        ))}
-        {props.mode === 'free' && <span className="camera-free">Free camera</span>}
+      <div className="camera-bar">
+        <div className="chip-inline">Camera: Orbit · {MODE_NAME[props.mode]}</div>
+        <div className="camera-modes" role="group" aria-label="Camera">
+          {CAMERA_MODES.map((m) => (
+            <button
+              key={m.mode}
+              type="button"
+              className={props.mode === m.mode ? 'active' : ''}
+              aria-pressed={props.mode === m.mode}
+              title={m.title}
+              onClick={() => props.onMode(m.mode)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="zoom" role="group" aria-label="Zoom">
+        <button type="button" aria-label="Zoom in" onClick={() => props.rigRef.current?.zoom(0.6)}>
+          +
+        </button>
+        <button type="button" aria-label="Zoom out" onClick={() => props.rigRef.current?.zoom(1.6)}>
+          −
+        </button>
+        <button type="button" aria-label="Reset camera" onClick={() => props.onMode('overview')}>
+          ⟲
+        </button>
       </div>
       <div className="compass north-up" aria-label="North is up">
         <span>N</span>

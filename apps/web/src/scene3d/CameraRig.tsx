@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type ComponentRef } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { useFrame, useThree } from '@react-three/fiber';
-import { Vector3, type DirectionalLight, type PerspectiveCamera } from 'three';
+import { PerspectiveCamera, Vector3, type DirectionalLight } from 'three';
 import type { Phase } from '../sim/useSimulation';
 import { bounds, leadCar, poseAt, type CarPath, type Lot, type Vec2 } from './world';
 
@@ -11,6 +11,12 @@ import { bounds, leadCar, poseAt, type CarPath, type Lot, type Vec2 } from './wo
  * `follow` chases the lead car. Any drag or scroll switches to `free` so the user stays in control.
  */
 export type CameraMode = 'auto' | 'overview' | 'follow' | 'free';
+
+/** Imperative handle for the zoom buttons outside the canvas. */
+export interface RigApi {
+  /** Multiplies the camera's distance to its target (< 1 zooms in). Switches to free. */
+  zoom: (factor: number) => void;
+}
 
 interface Props {
   mode: CameraMode;
@@ -22,32 +28,74 @@ interface Props {
   server: Lot;
   paths: readonly CarPath[] | null;
   clockRef: { readonly current: number };
+  apiRef: { current: RigApi | null };
 }
 
 type OrbitControlsImpl = ComponentRef<typeof OrbitControls>;
-type Shot = { target: Vector3; eye: Vector3; rate: number };
+type Shot = {
+  target: Vector3;
+  eye: Vector3;
+  rate: number;
+  /** Follow shots: the car being chased, so the camera can ride along with it exactly. */
+  lead?: number;
+};
 
 /** View direction for wide shots: from the south-south-east, looking down at about 50°. */
 const AZIMUTH = 0.32;
 const ELEVATION = 0.9;
 
+/**
+ * Frames every point: projects them through a camera looking from the wide-shot direction, then
+ * binary-searches the distance and re-centres the target until the projected box fills about 85%
+ * of the view. Tilt makes the near (south) side take more screen space, which a bounding circle
+ * alone misjudges.
+ */
 function overviewShot(points: readonly Vec2[], fov: number, aspect: number): Shot {
+  const cam = new PerspectiveCamera(fov, aspect, 1, 50000);
+  const dir = new Vector3(
+    Math.sin(AZIMUTH) * Math.cos(ELEVATION),
+    Math.sin(ELEVATION),
+    Math.cos(AZIMUTH) * Math.cos(ELEVATION),
+  );
   const { center, radius } = bounds(points);
-  const half = (fov * Math.PI) / 360;
-  // Fit the bounding circle in the tighter of the two frustum dimensions.
-  const fit = Math.min(Math.tan(half), Math.tan(half) * aspect);
-  const d = (radius / fit) * 0.92;
-  const target = new Vector3(center.x, 0, center.z - radius * 0.06);
-  const eye = target
-    .clone()
-    .add(
-      new Vector3(
-        Math.sin(AZIMUTH) * Math.cos(ELEVATION),
-        Math.sin(ELEVATION),
-        Math.cos(AZIMUTH) * Math.cos(ELEVATION),
-      ).multiplyScalar(d),
-    );
-  return { target, eye, rate: 1.6 };
+  const target = new Vector3(center.x, 0, center.z);
+  const v = new Vector3();
+  const box = (d: number) => {
+    cam.position.copy(target).addScaledVector(dir, d);
+    cam.lookAt(target);
+    cam.updateMatrixWorld();
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    for (const p of points) {
+      v.set(p.x, 0, p.z).project(cam);
+      x0 = Math.min(x0, v.x);
+      x1 = Math.max(x1, v.x);
+      y0 = Math.min(y0, v.y);
+      y1 = Math.max(y1, v.y);
+    }
+    return { x0, x1, y0, y1 };
+  };
+  let d = radius * 3;
+  for (let round = 0; round < 4; round++) {
+    // Re-centre: aim at the ground point under the projected box's centre.
+    const b = box(d);
+    v.set((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 0.5).unproject(cam);
+    const ray = v.sub(cam.position).normalize();
+    const t = -cam.position.y / ray.y;
+    target.set(cam.position.x + ray.x * t, 0, cam.position.z + ray.z * t);
+    let lo = radius * 0.2;
+    let hi = radius * 12;
+    for (let i = 0; i < 30; i++) {
+      const mid = (lo + hi) / 2;
+      const b = box(mid);
+      if (Math.max(-b.x0, b.x1, -b.y0, b.y1) > 0.85) lo = mid;
+      else hi = mid;
+    }
+    d = hi;
+  }
+  return { target, eye: target.clone().addScaledVector(dir, d), rate: 1.6 };
 }
 
 function lotShot(lot: Lot): Shot {
@@ -77,6 +125,24 @@ export function CameraRig(props: Props) {
     controls.current?.update();
   }, [camera, overview]);
 
+  const { apiRef, onUserControl } = props;
+  useEffect(() => {
+    apiRef.current = {
+      zoom: (factor) => {
+        const c = controls.current;
+        if (!c) return;
+        onUserControl();
+        const offset = camera.position.clone().sub(c.target).multiplyScalar(factor);
+        const len = Math.min(3000, Math.max(6, offset.length()));
+        camera.position.copy(c.target).add(offset.setLength(len));
+        c.update();
+      },
+    };
+    return () => {
+      apiRef.current = null;
+    };
+  }, [apiRef, camera, onUserControl]);
+
   const followShot = (): Shot | null => {
     const paths = props.paths;
     if (!paths || paths.length === 0) return null;
@@ -86,9 +152,9 @@ export function CameraRig(props: Props) {
     const p = poseAt(paths[i]!, t);
     const fx = Math.cos(p.heading);
     const fz = -Math.sin(p.heading);
-    scratch.target.set(p.x + fx * 6, 0, p.z + fz * 6);
-    scratch.eye.set(p.x - fx * 26, 15, p.z - fz * 26);
-    return { target: scratch.target, eye: scratch.eye, rate: 2.6 };
+    scratch.target.set(p.x + fx * 8, 0, p.z + fz * 8);
+    scratch.eye.set(p.x - fx * 34, 19, p.z - fz * 34);
+    return { target: scratch.target, eye: scratch.eye, rate: 2.2, lead: i };
   };
 
   const shotFor = (): Shot | null => {
@@ -116,10 +182,24 @@ export function CameraRig(props: Props) {
     }
   };
 
+  const ride = useRef<{ lead: number; at: Vector3 } | null>(null);
+  const delta = useMemo(() => new Vector3(), []);
+
   useFrame((_, dt) => {
     const c = controls.current;
     if (!c) return;
     const shot = shotFor();
+    // Easing alone lags far behind a fast car, so while chasing the same car the camera first
+    // moves with it, then eases toward the chase angle.
+    const prev = ride.current;
+    if (shot?.lead !== undefined && prev?.lead === shot.lead) {
+      delta.subVectors(shot.target, prev.at);
+      camera.position.add(delta);
+      c.target.add(delta);
+      prev.at.copy(shot.target);
+    } else {
+      ride.current = shot?.lead !== undefined ? { lead: shot.lead, at: shot.target.clone() } : null;
+    }
     if (!shot) return;
     const k = 1 - Math.exp(-Math.min(dt, 0.1) * shot.rate);
     camera.position.lerp(shot.eye, k);

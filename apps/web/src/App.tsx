@@ -1,7 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { Network } from '@netsim/shared';
 import { api } from './api/client';
-import type { CameraMode } from './scene3d/CameraRig';
+import type { CameraMode, RigApi } from './scene3d/CameraRig';
 import { SceneBoundary } from './scene3d/SceneBoundary';
 import { hasWebGL, prefersReducedMotion } from './scene3d/webgl';
 import { useSimulation } from './sim/useSimulation';
@@ -40,6 +40,7 @@ export function App() {
   const [zoom, setZoom] = useState(1);
   const [{ view, no3d }, setViewState] = useState(initialView);
   const [cameraMode, setCameraMode] = useState<CameraMode>('auto');
+  const rigRef = useRef<RigApi | null>(null);
   const setView = (v: View) => setViewState((s) => ({ ...s, view: v }));
   const on3dError = (message: string) =>
     setViewState({ view: '2d', no3d: `3D view stopped (${message}) — showing the 2D view.` });
@@ -132,11 +133,12 @@ export function App() {
                       onToggleLink={sim.toggleLink}
                       cameraMode={cameraMode}
                       onCameraMode={setCameraMode}
+                      rigRef={rigRef}
                     />
                   </Suspense>
                 </SceneBoundary>
               </div>
-              <CameraControls mode={cameraMode} onMode={setCameraMode} />
+              <CameraControls mode={cameraMode} onMode={setCameraMode} rigRef={rigRef} />
               <Legend />
             </>
           ) : network && layout ? (
