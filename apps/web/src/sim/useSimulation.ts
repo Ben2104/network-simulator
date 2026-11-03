@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Network, PacketizeRequest, PacketizeResponse, RouteResponse } from '@netsim/shared';
+import {
+  project,
+  type Network,
+  type PacketizeRequest,
+  type PacketizeResponse,
+  type RouteResponse,
+} from '@netsim/shared';
 import { api, ApiRequestError } from '../api/client';
-import type { Layout } from '../view2d/layout';
 import { packetize } from './packetize';
 import { planRun } from './plan';
 import { bfsStepsShown, framesAt, type CarFrame, type Timeline } from './timeline';
@@ -16,6 +21,14 @@ export type Speed = (typeof SPEEDS)[number];
 export interface Upload {
   label: string;
   packets: PacketizeResponse;
+  /** Set when the file really went to `POST /api/upload` (drag and drop or browse). */
+  server?: {
+    size: string;
+    summary: string;
+    sha256: string;
+    /** Server hash equals the browser's own SHA-256 of the file. */
+    verified: boolean;
+  };
 }
 
 interface Run {
@@ -29,7 +42,12 @@ const toggle = (set: ReadonlySet<string>, id: string) => {
   return next;
 };
 
-export function useSimulation(network: Network | null, layout: Layout | null) {
+export function useSimulation(network: Network | null) {
+  // Timing uses true projected distances, the same geography the 3D scene draws.
+  const pos = useMemo(
+    () => new Map(network?.nodes.map((n) => [n.id, project(n.lat, n.lon)]) ?? []),
+    [network],
+  );
   const [upload, setUpload] = useState<Upload | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
@@ -56,7 +74,8 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
     let last = performance.now();
     let frame = 0;
     const tick = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.1);
+      // Clamp to [0, 0.1] s: a clock that jumps backwards must not rewind the simulation.
+      const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
       last = now;
       const next = Math.min(clockRef.current + dt * speedRef.current, run.timeline.end);
       clockRef.current = next;
@@ -117,13 +136,22 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
       loadRequest({ source: 'file', fileName, sizeBytes }, fileName),
     [loadRequest],
   );
+  /** A plan computed by the server for a real upload. */
+  const loadUploaded = useCallback(
+    (u: Upload) => {
+      clearRun();
+      setUpload(u);
+      setInputError(null);
+    },
+    [clearRun],
+  );
   const loadMessage = useCallback(
     (message: string) => loadRequest({ source: 'message', message }, 'Message'),
     [loadRequest],
   );
 
   const send = useCallback(async () => {
-    if (!network || !layout || !upload) return;
+    if (!network || !upload) return;
     const id = ++requestId.current;
     setRouting(true);
     setApiError(null);
@@ -141,7 +169,7 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
         network,
         upload.packets,
         route,
-        layout.pos,
+        pos,
         disabledNodeIds,
         disabledLinkIds,
         Math.random,
@@ -153,7 +181,7 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
     } finally {
       if (id === requestId.current) setRouting(false);
     }
-  }, [network, layout, upload, disabledNodeIds, disabledLinkIds]);
+  }, [network, pos, upload, disabledNodeIds, disabledLinkIds]);
 
   /** Back to the file input, keeping any broken stations and roads. */
   const changeFile = useCallback(() => {
@@ -213,6 +241,7 @@ export function useSimulation(network: Network | null, layout: Layout | null) {
     setSpeed,
     togglePause: () => setPaused((p) => !p),
     loadFile,
+    loadUploaded,
     loadMessage,
     changeFile,
     send,

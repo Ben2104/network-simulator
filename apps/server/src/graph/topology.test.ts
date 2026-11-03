@@ -12,11 +12,11 @@ const failures = (nodes: string[] = []): FailureState => ({
 const byId = new Map(net.nodes.map((n) => [n.id, n]));
 
 describe('default topology', () => {
-  it('has 19 nodes and 24 links with unique IDs', () => {
-    expect(net.nodes).toHaveLength(19);
-    expect(net.links).toHaveLength(24);
-    expect(new Set(net.nodes.map((n) => n.id)).size).toBe(19);
-    expect(new Set(net.links.map((l) => l.id)).size).toBe(24);
+  it('has 27 nodes and 35 links with unique IDs', () => {
+    expect(net.nodes).toHaveLength(27);
+    expect(net.links).toHaveLength(35);
+    expect(new Set(net.nodes.map((n) => n.id)).size).toBe(27);
+    expect(new Set(net.links.map((l) => l.id)).size).toBe(35);
   });
 
   it('has exactly one client lot (CSULB) and one server lot (Oregon)', () => {
@@ -56,6 +56,13 @@ describe('default topology', () => {
     }
   });
 
+  it('the east corridor takes over when both western corridors are cut', () => {
+    const r = findRoute(net, net.clientId, net.serverId, failures(['sacramento', 'redding']));
+    expect(r.found).toBe(true);
+    expect(r.path).toContain('las-vegas');
+    expect(r.path).toContain('boise');
+  });
+
   it('default route has no link longer than 450 km', () => {
     const r = findRoute(net, net.clientId, net.serverId, failures());
     const linkById = new Map(net.links.map((l) => [l.id, l]));
@@ -87,7 +94,7 @@ describe('default topology matches docs/architecture.md', () => {
       lon: Number(lon),
       place,
     }));
-    expect(documented).toHaveLength(19);
+    expect(documented).toHaveLength(27);
     expect(net.nodes).toEqual(documented);
   });
 

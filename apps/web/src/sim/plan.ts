@@ -1,7 +1,6 @@
 import type { Network, PacketizeResponse, RouteResponse } from '@netsim/shared';
-import type { Point } from '../view2d/layout';
 import { assignRoutes, enumerateRoutes } from './routes';
-import { buildTimeline, type Timeline } from './timeline';
+import { buildTimeline, type Point, type Timeline } from './timeline';
 
 /**
  * Builds the animation for one Send. Every car gets a randomly chosen route among all routes with

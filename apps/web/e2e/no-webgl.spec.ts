@@ -1,14 +1,15 @@
 import { expect, test } from '@playwright/test';
 
-// No WebGL at all: the app must open in 2D, explain why, and not crash.
+// No WebGL at all: the map explains why; the sidebar still works and nothing crashes.
 test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
 
-test('falls back to the 2D view with an explanation', async ({ page }) => {
+test('explains that the map needs WebGL', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByText(/3D view needs WebGL/)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: '3D view' })).toBeDisabled();
-  await expect(page.getByRole('img', { name: /West Coast network map/ })).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('needs WebGL', { timeout: 30_000 });
+  await expect(page.locator('canvas')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '2D view' })).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Network status' })).toBeVisible();
   expect(errors).toEqual([]);
 });

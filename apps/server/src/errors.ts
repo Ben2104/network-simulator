@@ -23,6 +23,9 @@ export function registerErrorHandlers(app: FastifyInstance): void {
       return reply.status(400).send(body('VALIDATION_ERROR', err.message));
     }
     const status = err.statusCode ?? 500;
+    if (status === 413) {
+      return reply.status(413).send(body('PAYLOAD_TOO_LARGE', 'Request body is too large.'));
+    }
     if (status >= 500) {
       req.log.error(err);
       return reply.status(500).send(body('INTERNAL_ERROR', 'Something went wrong.'));
