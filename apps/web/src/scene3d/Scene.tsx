@@ -41,6 +41,7 @@ export interface SceneProps {
 export const Scene = memo(function Scene(props: SceneProps) {
   const { network, route, timeline, clockRef, phase } = props;
   const world = useMemo(() => buildWorld(network), [network]);
+  const lots = useMemo(() => [world.client, world.server], [world]);
   const labelEls = useRef<LabelEls>(new Map());
   const tipEl = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -183,6 +184,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
               visitAt={visit.get(n.id)?.at ?? null}
               clockRef={clockRef}
               roads={roadsAt.get(n.id) ?? []}
+              lots={lots}
               canToggle={props.canToggle}
               onToggle={props.onToggleNode}
             />

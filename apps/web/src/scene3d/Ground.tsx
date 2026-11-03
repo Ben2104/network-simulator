@@ -3,7 +3,7 @@ import { Line } from '@react-three/drei';
 import { ExtrudeGeometry, Object3D, Shape, type InstancedMesh } from 'three';
 import { C } from './palette';
 import westcoast from './westcoast.json';
-import { distanceToLine, inRing, rng, toWorld, type Vec2, type World } from './world';
+import { distanceToLine, inLotArea, inRing, rng, toWorld, type Vec2, type World } from './world';
 
 type Ring = number[][];
 interface Feature {
@@ -155,10 +155,7 @@ function Forest({ world }: { world: World }) {
       if (!land.some((ring) => inRing(lon, lat, ring))) continue;
       const p = toWorld(lat, lon);
       if (!clear(p, world, 3)) continue;
-      if (Math.abs(p.x - world.client.center.x) < 20 && Math.abs(p.z - world.client.center.z) < 12)
-        continue;
-      if (Math.abs(p.x - world.server.center.x) < 24 && Math.abs(p.z - world.server.center.z) < 16)
-        continue;
+      if (inLotArea(p, world.client, 3) || inLotArea(p, world.server, 3)) continue;
       out.push({ ...p, s: 0.7 + rand() * 0.9, r: rand() * Math.PI });
     }
     return out;

@@ -2,7 +2,7 @@ import { memo, useMemo, useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import type { Group, Mesh, MeshBasicMaterial, MeshStandardMaterial } from 'three';
 import { C } from './palette';
-import { distanceToLine, rng, type Vec2 } from './world';
+import { distanceToLine, inLotArea, rng, type Lot, type Vec2 } from './world';
 
 export type StationState = 'idle' | 'visited' | 'path' | 'broken';
 
@@ -15,6 +15,8 @@ interface Props {
   clockRef: { readonly current: number };
   /** Roads touching this station, so its little town keeps them clear. */
   roads: readonly Vec2[][];
+  /** Parking lots, kept clear of the town as well. */
+  lots: readonly Lot[];
   canToggle: boolean;
   onToggle: (id: string) => void;
 }
@@ -27,7 +29,7 @@ const STATE_COLOR: Record<StationState, string> = {
 };
 
 /** A few deterministic buildings around the station, kept off its roads. */
-function useTown(id: string, pos: Vec2, roads: readonly Vec2[][]) {
+function useTown(id: string, pos: Vec2, roads: readonly Vec2[][], lots: readonly Lot[]) {
   return useMemo(() => {
     let seed = 0;
     for (const ch of id) seed = seed * 31 + ch.charCodeAt(0);
@@ -38,6 +40,7 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][]) {
       const r = 4.5 + rand() * 6;
       const p = { x: pos.x + Math.cos(a) * r, z: pos.z + Math.sin(a) * r };
       if (roads.some((line) => distanceToLine(p, line) < 2.6)) continue;
+      if (lots.some((lot) => inLotArea(p, lot))) continue;
       if (out.some((b) => Math.hypot(b.x - p.x, b.z - p.z) < 2.4)) continue;
       out.push({
         x: p.x - pos.x,
@@ -49,7 +52,7 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][]) {
       });
     }
     return out;
-  }, [id, pos, roads]);
+  }, [id, pos, roads, lots]);
 }
 
 /**
@@ -59,7 +62,7 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][]) {
 export const Station = memo(function Station(props: Props) {
   const { id, pos, state, visitAt, clockRef } = props;
   const color = STATE_COLOR[state];
-  const town = useTown(id, pos, props.roads);
+  const town = useTown(id, pos, props.roads, props.lots);
   const ring = useRef<Mesh>(null);
   const ringMat = useRef<MeshBasicMaterial>(null);
   const beacon = useRef<MeshStandardMaterial>(null);

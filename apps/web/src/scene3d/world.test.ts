@@ -6,6 +6,7 @@ import {
   buildWorld,
   carPath,
   distanceToLine,
+  inLotArea,
   inRing,
   leadCar,
   lotSlot,
@@ -93,6 +94,14 @@ describe('lots', () => {
     expect(keys.size).toBe(24);
     expect(Math.sign(slots[0]!.z - world.client.gate.z)).toBe(
       -Math.sign(slots[1]!.z - world.client.gate.z),
+    );
+  });
+
+  it('marks the lot and its building as occupied, not the road beyond the gate', () => {
+    for (let i = 0; i < 24; i++)
+      expect(inLotArea(lotSlot(world.client, i).slot, world.client)).toBe(true);
+    expect(inLotArea({ x: world.client.gate.x - 10, z: world.client.gate.z }, world.client)).toBe(
+      false,
     );
   });
 

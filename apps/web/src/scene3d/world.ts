@@ -213,6 +213,20 @@ export function parkedPose(lot: Lot, seq: number): Pose {
   };
 }
 
+/**
+ * True if `p` falls on a lot or its building (campus / data center sits north of the asphalt),
+ * plus a small margin. Scenery placement uses it to keep towns and trees out.
+ */
+export function inLotArea(p: Vec2, lot: Lot, margin = 1.5): boolean {
+  const dx = p.x - lot.center.x;
+  const dz = p.z - lot.center.z;
+  return (
+    Math.abs(dx) < LOT_LENGTH / 2 + margin + 2 &&
+    dz > -LOT_DEPTH / 2 - 12 - margin &&
+    dz < LOT_DEPTH / 2 + margin
+  );
+}
+
 /** Index of the car to follow: the driving car furthest along, else -1. */
 export function leadCar(paths: readonly CarPath[], t: number): number {
   let best = -1;
