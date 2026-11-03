@@ -120,7 +120,9 @@ call, and shape. All algorithm tests run without HTTP.
 ### 7. Determinism
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
-same route and same cars, every presentation.
+same BFS route and same cars, every presentation. The one exception is playback: each car picks
+a random route among the equally short ones (see Playback), so which road a car drives varies
+between sends.
 
 ### 8. One timeline, two renderers
 
@@ -222,6 +224,27 @@ packetizing | routing ──API error──► error (keeps cars, Retry)
 
 Failure toggles are enabled only in `idle`, `loaded`, `delivered`, `noRoute`. Mid-drive
 rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
+
+## Playback (2D)
+
+`sim/timeline.ts` is pure: it turns cars and routes into positions at a simulation time `t`. The 2D
+view (`view2d/`) draws those positions; a 3D scene can read the same frames.
+
+- **One clock.** `useSimulation` advances `t` by real elapsed time times the playback speed
+  (0.25×, 0.5×, 1×, 2×). Speed changes mid-flight are smooth and Pause stops the clock. Slowing
+  down exists so a class can watch packets that would otherwise arrive instantly.
+- **Phases.** `/route` returns, then `t` first replays the BFS visit order (searching), then cars
+  leave the CSULB lot one after another (driving) and park in the destination lot (delivered).
+  An unreachable result ends after the search replay (noRoute).
+- **Packetize is client-side for now.** `sim/packetize.ts` implements the table above until
+  `POST /api/packetize` exists. It returns the `PacketizeResponse` shape, so only the caller
+  changes later. The `packetizing` state is instantaneous and never shown.
+- **Each car picks its own route at random** among all routes with the same hop count as the BFS
+  result (the server answer stays deterministic; the web client breaks ties randomly per car,
+  with an injectable `rng` for tests). Every route a car takes is a valid fewest-hop route, but
+  it may differ from the highlighted BFS path.
+- **Map layout.** `view2d/layout.ts` applies the shared projection, spreads the dense Long Beach
+  stations, and rotates the map 68° clockwise (the same schematic liberties as the 3D design).
 
 ## API contract
 
@@ -367,10 +390,10 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | Monorepo, CI, Render blueprint         | Done                                              |
 | Shared contract, error handling        | Done (v2; freeze pending #4)                      |
 | BFS + tests                            | Done on West Coast topology; demo routes asserted |
-| 2D SVG view, send/reset, toggles       | Done (foundation)                                 |
+| 2D SVG view, send/reset, toggles       | Done; matches the Figma 2D frames (see Playback)  |
 | West Coast topology, lat/lon, distance | Done                                              |
-| `/packetize`, `fromNodeId`             | To do                                             |
-| `sim/` reducer + timeline              | To do                                             |
+| `/packetize`, `fromNodeId`             | To do (web packetizes client-side meanwhile)      |
+| `sim/` hook + timeline                 | Done for 2D (`useSimulation`, `timeline.ts`)      |
 | 3D scene, cars, camera                 | To do                                             |
 | Component + E2E tests                  | To do                                             |
 
