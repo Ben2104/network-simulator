@@ -1,0 +1,78 @@
+import { expect, test, type Page } from '@playwright/test';
+
+/** Spread of pixel brightness in the WebGL canvas; ~0 means a blank (single-colour) frame. */
+async function canvasSpread(page: Page): Promise<number> {
+  return page
+    .locator('[data-testid="scene3d"] canvas, .scene3d canvas')
+    .first()
+    .evaluate((el) => {
+      const src = el as HTMLCanvasElement;
+      const c = document.createElement('canvas');
+      c.width = 64;
+      c.height = 40;
+      const ctx = c.getContext('2d')!;
+      ctx.drawImage(src, 0, 0, c.width, c.height);
+      const d = ctx.getImageData(0, 0, c.width, c.height).data;
+      let min = 255;
+      let max = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const v = (d[i]! + d[i + 1]! + d[i + 2]!) / 3;
+        min = Math.min(min, v);
+        max = Math.max(max, v);
+      }
+      return max - min;
+    });
+}
+
+test('3D canvas mounts, is non-blank and runs Submit → Send', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '3D view' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  const canvas = page.locator('.scene3d canvas');
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => canvasSpread(page), { timeout: 30_000 }).toBeGreaterThan(40);
+
+  // Lot labels from the Figma v2 frames.
+  await expect(page.getByText('Sender: CSULB parking lot')).toBeAttached();
+
+  await page.getByRole('button', { name: 'Presets' }).click();
+  await page.getByRole('button', { name: /essay\.pdf/ }).click();
+  await expect(page.getByText('client · 24 cars')).toBeAttached();
+  await page.getByRole('radio', { name: '2×' }).click();
+  await page.getByRole('button', { name: /Send/ }).first().click();
+  await expect(page.getByText('STATE:')).toContainText(/SEARCHING|DRIVING|DELIVERED/, {
+    timeout: 15_000,
+  });
+  await expect.poll(() => canvasSpread(page)).toBeGreaterThan(40);
+});
+
+test('camera controls: follow is released by a drag', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.scene3d canvas')).toBeVisible({ timeout: 30_000 });
+  const follow = page.getByRole('button', { name: 'Follow lead car' });
+  await follow.click();
+  await expect(follow).toHaveAttribute('aria-pressed', 'true');
+  const box = (await page.locator('.scene3d canvas').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2 + 40, { steps: 6 });
+  await page.mouse.up();
+  await expect(follow).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByText('Camera: Orbit · Free')).toBeVisible();
+});
+
+test.describe('without WebGL', () => {
+  test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
+
+  test('falls back to the 2D view with an explanation', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto('/');
+    await expect(page.getByText(/3D view needs WebGL/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('button', { name: '3D view' })).toBeDisabled();
+    await expect(page.getByRole('img', { name: /West Coast network map/ })).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
