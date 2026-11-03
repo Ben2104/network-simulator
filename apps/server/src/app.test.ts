@@ -51,8 +51,8 @@ describe('API', () => {
     const net = res.json<Network>();
     expect(net.clientId).toBe('csulb');
     expect(net.serverId).toBe('oregon-dc');
-    expect(net.nodes).toHaveLength(19);
-    expect(net.links).toHaveLength(24);
+    expect(net.nodes).toHaveLength(27);
+    expect(net.links).toHaveLength(35);
     for (const node of net.nodes) {
       expect(node).toEqual(
         expect.objectContaining({
@@ -134,7 +134,7 @@ describe('API', () => {
     expect(rerouted.status).toBe('routed');
     expect(rerouted.path).not.toContain('oakland');
     const cut = (
-      await route({ disabledNodeIds: ['sacramento', 'redding'], disabledLinkIds: [] })
+      await route({ disabledNodeIds: ['sacramento', 'redding', 'barstow'], disabledLinkIds: [] })
     ).json<RouteResponse>();
     expect(cut.status).toBe('unreachable');
     expect(cut.path).toEqual([]);

@@ -24,7 +24,7 @@ const expectDocumented = (s: Scenario, expected: Expected, network: Network = ne
 };
 
 describe('demo routes in docs/architecture.md', () => {
-  it('documents exactly the five demo scenarios', () => {
+  it('documents exactly the six demo scenarios', () => {
     expect(documented.map(([label]) => label)).toEqual(Object.keys(SCENARIOS));
   });
 
@@ -58,16 +58,23 @@ describe('demo routes in docs/architecture.md', () => {
       'riverside',
       'san-jose',
       'bakersfield',
+      'barstow',
       'oakland',
       'fresno',
+      'las-vegas',
       'redding',
       'sacramento',
+      'tonopah',
       'medford',
       'reno',
+      'winnemucca',
       'eugene',
       'klamath-falls',
+      'boise',
       'bend',
       'portland',
+      'ontario',
+      'burns',
       'oregon-dc',
     ]);
     const depths = r.visitOrder.map((s) => s.depth);
@@ -75,7 +82,9 @@ describe('demo routes in docs/architecture.md', () => {
   });
 
   it('explores the documented 10 stations before giving up', () => {
-    expect(run(SCENARIOS['`sacramento` + `redding`']!).visitOrder.map((s) => s.nodeId)).toEqual([
+    expect(
+      run(SCENARIOS['`sacramento` + `redding` + `barstow`']!).visitOrder.map((s) => s.nodeId),
+    ).toEqual([
       'csulb',
       'el-segundo',
       'lb-isp',

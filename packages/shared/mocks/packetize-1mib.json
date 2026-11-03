@@ -7,169 +7,22 @@
       "id": "car-0",
       "seq": 0,
       "firstPacket": 0,
-      "lastPacket": 29,
-      "bytes": 45000
+      "lastPacket": 233,
+      "bytes": 351000
     },
     {
       "id": "car-1",
       "seq": 1,
-      "firstPacket": 30,
-      "lastPacket": 59,
-      "bytes": 45000
+      "firstPacket": 234,
+      "lastPacket": 466,
+      "bytes": 349500
     },
     {
       "id": "car-2",
       "seq": 2,
-      "firstPacket": 60,
-      "lastPacket": 89,
-      "bytes": 45000
-    },
-    {
-      "id": "car-3",
-      "seq": 3,
-      "firstPacket": 90,
-      "lastPacket": 119,
-      "bytes": 45000
-    },
-    {
-      "id": "car-4",
-      "seq": 4,
-      "firstPacket": 120,
-      "lastPacket": 148,
-      "bytes": 43500
-    },
-    {
-      "id": "car-5",
-      "seq": 5,
-      "firstPacket": 149,
-      "lastPacket": 177,
-      "bytes": 43500
-    },
-    {
-      "id": "car-6",
-      "seq": 6,
-      "firstPacket": 178,
-      "lastPacket": 206,
-      "bytes": 43500
-    },
-    {
-      "id": "car-7",
-      "seq": 7,
-      "firstPacket": 207,
-      "lastPacket": 235,
-      "bytes": 43500
-    },
-    {
-      "id": "car-8",
-      "seq": 8,
-      "firstPacket": 236,
-      "lastPacket": 264,
-      "bytes": 43500
-    },
-    {
-      "id": "car-9",
-      "seq": 9,
-      "firstPacket": 265,
-      "lastPacket": 293,
-      "bytes": 43500
-    },
-    {
-      "id": "car-10",
-      "seq": 10,
-      "firstPacket": 294,
-      "lastPacket": 322,
-      "bytes": 43500
-    },
-    {
-      "id": "car-11",
-      "seq": 11,
-      "firstPacket": 323,
-      "lastPacket": 351,
-      "bytes": 43500
-    },
-    {
-      "id": "car-12",
-      "seq": 12,
-      "firstPacket": 352,
-      "lastPacket": 380,
-      "bytes": 43500
-    },
-    {
-      "id": "car-13",
-      "seq": 13,
-      "firstPacket": 381,
-      "lastPacket": 409,
-      "bytes": 43500
-    },
-    {
-      "id": "car-14",
-      "seq": 14,
-      "firstPacket": 410,
-      "lastPacket": 438,
-      "bytes": 43500
-    },
-    {
-      "id": "car-15",
-      "seq": 15,
-      "firstPacket": 439,
-      "lastPacket": 467,
-      "bytes": 43500
-    },
-    {
-      "id": "car-16",
-      "seq": 16,
-      "firstPacket": 468,
-      "lastPacket": 496,
-      "bytes": 43500
-    },
-    {
-      "id": "car-17",
-      "seq": 17,
-      "firstPacket": 497,
-      "lastPacket": 525,
-      "bytes": 43500
-    },
-    {
-      "id": "car-18",
-      "seq": 18,
-      "firstPacket": 526,
-      "lastPacket": 554,
-      "bytes": 43500
-    },
-    {
-      "id": "car-19",
-      "seq": 19,
-      "firstPacket": 555,
-      "lastPacket": 583,
-      "bytes": 43500
-    },
-    {
-      "id": "car-20",
-      "seq": 20,
-      "firstPacket": 584,
-      "lastPacket": 612,
-      "bytes": 43500
-    },
-    {
-      "id": "car-21",
-      "seq": 21,
-      "firstPacket": 613,
-      "lastPacket": 641,
-      "bytes": 43500
-    },
-    {
-      "id": "car-22",
-      "seq": 22,
-      "firstPacket": 642,
-      "lastPacket": 670,
-      "bytes": 43500
-    },
-    {
-      "id": "car-23",
-      "seq": 23,
-      "firstPacket": 671,
+      "firstPacket": 467,
       "lastPacket": 699,
-      "bytes": 42076
+      "bytes": 348076
     }
   ]
 }

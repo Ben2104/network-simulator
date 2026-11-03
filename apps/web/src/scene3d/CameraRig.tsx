@@ -202,7 +202,8 @@ export function CameraRig(props: Props) {
       ride.current = shot?.lead !== undefined ? { lead: shot.lead, at: shot.target.clone() } : null;
     }
     if (!shot) return;
-    const k = 1 - Math.exp(-Math.min(dt, 0.1) * shot.rate);
+    // Clamp: timers can jump (tab sleep, clock changes); a negative dt would fling the camera.
+    const k = 1 - Math.exp(-Math.min(Math.max(dt, 0), 0.1) * shot.rate);
     camera.position.lerp(shot.eye, k);
     c.target.lerp(shot.target, k);
     c.update();

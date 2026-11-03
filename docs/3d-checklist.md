@@ -9,7 +9,7 @@ without a discrete GPU).
 
 ## Load and idle
 
-- [ ] 3D view is selected by default; the overview shows CA, OR and WA with all 19 stations.
+- [ ] The 3D map loads; the overview shows CA, OR, WA, NV and ID with all 27 stations.
 - [ ] Ocean, state borders, peaks and forest render; no z-fighting flicker on roads or lots.
 - [ ] Labels never overlap; zooming into Los Angeles reveals the hidden ones.
 - [ ] "Sender: CSULB parking lot" and "Destination: US-West Data Center, Oregon" are visible.
@@ -33,7 +33,8 @@ without a discrete GPU).
 - [ ] Clicking a station or road (when unlocked) breaks it: red colour plus a spinning cross
       (station) or cones and cross (road), and a "✕ Offline" label.
 - [ ] Break Oakland, Send: route goes inland via Sacramento – Reno – Klamath Falls.
-- [ ] Break Sacramento and Redding: search ends with "No route available"; cars stay parked.
+- [ ] Break Sacramento and Redding: cars take the east corridor (Barstow, Las Vegas, Boise).
+- [ ] Also break Barstow: search ends with "No route available"; cars stay parked.
 - [ ] Clicks are ignored while routing, searching and driving; an orbit drag never toggles.
 
 ## Camera

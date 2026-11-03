@@ -11,26 +11,25 @@ describe('packetize (matches the architecture.md examples)', () => {
     expect(r.cars).toEqual([{ id: 'car-0', seq: 0, firstPacket: 0, lastPacket: 0, bytes: 1 }]);
   });
 
-  it('36,000 B → 24 packets, one per car', () => {
-    const r = packetize(file(36_000));
-    expect(r.packetCount).toBe(24);
-    expect(r.cars).toHaveLength(24);
-    expect(r.cars.every((c) => c.firstPacket === c.lastPacket)).toBe(true);
+  it('12 KB → 8 packets in 1 car', () => {
+    const r = packetize(file(12_000));
+    expect(r.packetCount).toBe(8);
+    expect(r.cars).toHaveLength(1);
   });
 
-  it('1 MiB → 700 packets in 24 cars; cars 0–3 carry 30, the rest 29', () => {
+  it('1 MiB → 700 packets in 3 cars', () => {
     const r = packetize(file(1_048_576));
     expect(r.packetCount).toBe(700);
-    expect(r.cars).toHaveLength(24);
-    const counts = r.cars.map((c) => c.lastPacket - c.firstPacket + 1);
-    expect(counts.slice(0, 4)).toEqual([30, 30, 30, 30]);
-    expect(counts.slice(4).every((n) => n === 29)).toBe(true);
-    expect(r.cars[0]?.bytes).toBe(45_000);
+    expect(r.cars.map((c) => c.lastPacket - c.firstPacket + 1)).toEqual([234, 233, 233]);
   });
 
-  it('1 GiB → 715,828 packets, still 24 cars; car bytes sum to the total', () => {
+  it('5 MB → 12 cars', () => {
+    expect(packetize(file(5_000_000)).cars).toHaveLength(12);
+  });
+
+  it('10 MB (the limit) → 6,667 packets in 24 cars; car bytes sum to the total', () => {
     const r = packetize(file(LIMITS.fileMaxBytes));
-    expect(r.packetCount).toBe(715_828);
+    expect(r.packetCount).toBe(6667);
     expect(r.cars).toHaveLength(LIMITS.maxCars);
     expect(r.cars.reduce((s, c) => s + c.bytes, 0)).toBe(LIMITS.fileMaxBytes);
   });

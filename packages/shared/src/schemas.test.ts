@@ -16,7 +16,8 @@ describe('LIMITS', () => {
       maxCars: 24,
       messageMaxLength: 140,
       fileNameMaxLength: 255,
-      fileMaxBytes: 1_073_741_824,
+      fileMaxBytes: 10_000_000,
+      uploadMaxBytes: 10_000_000,
     });
   });
 });
@@ -67,7 +68,7 @@ describe('PacketizeRequestSchema', () => {
 
   it.each([
     ['an empty file', { ...file, sizeBytes: 0 }],
-    ['a file over 1 GiB', { ...file, sizeBytes: LIMITS.fileMaxBytes + 1 }],
+    ['a file over 10 MB', { ...file, sizeBytes: LIMITS.fileMaxBytes + 1 }],
     ['a fractional size', { ...file, sizeBytes: 1.5 }],
     ['an empty file name', { ...file, fileName: '' }],
     ['a 256-char file name', { ...file, fileName: 'x'.repeat(256) }],

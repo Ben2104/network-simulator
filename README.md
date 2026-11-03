@@ -7,10 +7,9 @@ or roads and send again to watch it reroute.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
 > illustrative, not real ISP topology. The app does not inspect, control, or route real network
-> traffic. By default file contents never leave your browser — only name and size are sent. If you
-> tick the opt-in checkbox, the bytes (≤ 10 MB) are streamed to our Oregon server, hashed, and
-> immediately deleted — never stored. Real bytes take whatever internet path ISPs choose; the cars
-> show an illustrative BFS route.
+> traffic. Presets and messages never leave your browser. A file you drag into the upload zone
+> (≤ 10 MB) is streamed to our Oregon server, hashed, and immediately deleted — never stored. Real
+> bytes take whatever internet path ISPs choose; the cars show an illustrative BFS route.
 
 ## Live
 
@@ -60,13 +59,13 @@ Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/sh
 
 ## Layout
 
-| Path              | Contents                                                                     |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `apps/server`     | Fastify API (topology, BFS, packetization)                                   |
-| `apps/web`        | React UI: 3D scene (`scene3d/`), 2D fallback (`view2d/`), sim state (`sim/`) |
-| `packages/shared` | API schemas, types, limits, lat/lon projection (used by both apps)           |
-| `docs/`           | `architecture.md`, design spec, implementation plans, Stitch UI prompt       |
-| `render.yaml`     | Render deployment blueprint                                                  |
+| Path              | Contents                                                                        |
+| ----------------- | ------------------------------------------------------------------------------- |
+| `apps/server`     | Fastify API (topology, BFS, packetization)                                      |
+| `apps/web`        | React UI: 3D scene (`scene3d/`), upload and sidebar (`ui/`), sim state (`sim/`) |
+| `packages/shared` | API schemas, types, limits, lat/lon projection (used by both apps)              |
+| `docs/`           | `architecture.md`, design spec, implementation plans, Stitch UI prompt          |
+| `render.yaml`     | Render deployment blueprint                                                     |
 
 The API contract lives in `packages/shared/src/schemas.ts` and is described in
 [docs/architecture.md](docs/architecture.md#api-contract).
@@ -76,7 +75,8 @@ The API contract lives in `packages/shared/src/schemas.ts` and is described in
 See **[docs/architecture.md](docs/architecture.md)** for diagrams, design decisions, the full API
 contract, error codes, limits, config, and deployment details. Summary:
 
-- **Two steps.** Submit → `/packetize` splits the file into ≤ 24 cars. Send → `/route` runs BFS
+- **Two steps.** Upload (`/upload`, ≤ 10 MB) or a preset splits the file into cars by size:
+  10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS
   against current failures, then search animation, then cars drive.
 - **Stateless API.** Server holds one fixed topology. Browser holds cars and disabled
   stations/roads. Survives Render restarts; concurrent users do not collide.
@@ -86,8 +86,8 @@ contract, error codes, limits, config, and deployment details. Summary:
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
 - **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random equally short route.
-- **3D + 2D.** React Three Fiber scene with an SVG fallback (no WebGL, reduced motion, keyboard
-  and screen-reader use). Both render from one pure timeline.
+- **3D.** React Three Fiber scene driven by one pure timeline; without WebGL the map explains why
+  and the sidebar still works.
 
 ### API at a glance
 
@@ -193,14 +193,14 @@ Settings → Branches (or Rules) for `main`:
 
 ## Status
 
-Foundation done: monorepo, CI, Render blueprint, shared contract, BFS with tests, 2D SVG view
-with send/reset and toggles. The shared contract is v2 (lat/lon nodes, `distanceKm` links,
+Done: monorepo, CI, Render blueprint, shared contract, BFS with tests, the 3D scene, and
+`POST /api/upload` with drag-and-drop upload (the 2D view was removed). The shared contract is v2 (lat/lon nodes, `distanceKm` links,
 `/packetize` schemas, `fromNodeId` on `/route`, `project()`, `haversineKm()`), and the server
-serves the fixed West Coast topology (19 stations, 24 roads). The contract is frozen; mock
+serves the fixed West Coast topology (27 stations, 35 roads). The contract is frozen; mock
 responses for frontend and 3D work are in [`packages/shared/mocks/`](packages/shared/mocks/README.md).
 
 Next ([Plan 1](docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md)): West Coast
-topology (19 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
+topology (27 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
 `/packetize`, `fromNodeId`; then `sim/` reducer and timeline,
 3D scene and cars, component and E2E tests. See the status table in
 [docs/architecture.md](docs/architecture.md#implementation-status).

@@ -16,6 +16,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   'station `oakland`': { nodes: ['oakland'] },
   'road `oakland--redding`': { links: ['oakland--redding'] },
   '`sacramento` + `redding`': { nodes: ['sacramento', 'redding'] },
+  '`sacramento` + `redding` + `barstow`': { nodes: ['sacramento', 'redding', 'barstow'] },
   'start at `sacramento`': { from: 'sacramento' },
 };
 

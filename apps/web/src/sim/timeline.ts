@@ -1,6 +1,11 @@
 import type { Car } from '@netsim/shared';
-import type { Point } from '../view2d/layout';
 import type { Route } from './routes';
+
+/** A position in projected map units (shared `project()`: x east, y south). */
+export interface Point {
+  x: number;
+  y: number;
+}
 
 /** Sim seconds per BFS step in the search replay. */
 export const BFS_STEP_SEC = 0.3;

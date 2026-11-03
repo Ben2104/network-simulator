@@ -11,7 +11,11 @@ export const MOCKS_DIR = new URL('../../../../packages/shared/mocks/', import.me
 /** Requests behind the generated route mocks (also listed in the mocks README). */
 export const ROUTE_MOCK_REQUESTS: Record<string, RouteRequest> = {
   'route-routed': { disabledNodeIds: [], disabledLinkIds: [] },
-  'route-unreachable': { disabledNodeIds: ['sacramento', 'redding'], disabledLinkIds: [] },
+  // Sacramento + Redding alone now reroutes via the east corridor; Barstow closes that too.
+  'route-unreachable': {
+    disabledNodeIds: ['sacramento', 'redding', 'barstow'],
+    disabledLinkIds: [],
+  },
 };
 
 /** Generated from the running app. `packetize-1mib.json` is hand-written until #7 lands. */

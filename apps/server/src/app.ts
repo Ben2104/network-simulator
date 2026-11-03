@@ -7,6 +7,7 @@ import { WelcomeResponseSchema, type Network, type WelcomeResponse } from '@nets
 import { registerErrorHandlers } from './errors.js';
 import { healthRoutes } from './routes/health.js';
 import { networkRoutes } from './routes/network.js';
+import { uploadRoutes } from './routes/upload.js';
 import { createDefaultNetwork } from './graph/topology.js';
 
 const { version } = createRequire(import.meta.url)('../package.json') as { version: string };
@@ -15,6 +16,8 @@ export interface AppOptions {
   corsOrigins?: string[];
   network?: Network;
   logger?: FastifyServerOptions['logger'];
+  /** Uploads per IP per minute (tests lower it). */
+  uploadsPerMinute?: number;
 }
 
 /** Builds the app without listening, so tests can use `app.inject()`. */
@@ -46,6 +49,7 @@ export async function buildApp(opts: AppOptions = {}) {
     async (api) => {
       await api.register(healthRoutes);
       await api.register(networkRoutes, { network: opts.network ?? createDefaultNetwork() });
+      await api.register(uploadRoutes, { perMinute: opts.uploadsPerMinute });
     },
     { prefix: '/api' },
   );
