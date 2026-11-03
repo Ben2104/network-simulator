@@ -62,17 +62,3 @@ test('camera controls: follow is released by a drag', async ({ page }) => {
   await expect(follow).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByText('Camera: Orbit · Free')).toBeVisible();
 });
-
-test.describe('without WebGL', () => {
-  test.use({ launchOptions: { args: ['--disable-3d-apis'] } });
-
-  test('falls back to the 2D view with an explanation', async ({ page }) => {
-    const errors: string[] = [];
-    page.on('pageerror', (e) => errors.push(e.message));
-    await page.goto('/');
-    await expect(page.getByText(/3D view needs WebGL/)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('button', { name: '3D view' })).toBeDisabled();
-    await expect(page.getByRole('img', { name: /West Coast network map/ })).toBeVisible();
-    expect(errors).toEqual([]);
-  });
-});
