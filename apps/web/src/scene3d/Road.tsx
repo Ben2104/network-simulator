@@ -1,4 +1,5 @@
 import { memo, useMemo, useRef } from 'react';
+import { Line } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import type { MeshStandardMaterial } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -47,6 +48,10 @@ export const Road = memo(function Road({ id, curve, state, canToggle, onToggle }
     [curve],
   );
   const mid = curve[Math.floor(curve.length / 2)]!;
+  const line = useMemo(
+    () => curve.map((p) => [p.x, 0.3, p.z] as [number, number, number]),
+    [curve],
+  );
   const glowMat = useRef<MeshStandardMaterial>(null);
 
   useFrame(({ clock }) => {
@@ -75,6 +80,20 @@ export const Road = memo(function Road({ id, curve, state, canToggle, onToggle }
             depthWrite={false}
           />
         </mesh>
+      )}
+      {/* Screen-space line so the route and broken roads read at any zoom (Figma: 4 px route). */}
+      {state !== 'idle' && (
+        <Line
+          points={line}
+          color={state === 'path' ? C.route : C.danger}
+          lineWidth={state === 'path' ? 4 : 3}
+          dashed={state === 'broken'}
+          dashSize={6}
+          gapSize={4}
+          depthWrite={false}
+          transparent
+          opacity={0.9}
+        />
       )}
       <mesh geometry={asphalt} receiveShadow>
         <meshStandardMaterial

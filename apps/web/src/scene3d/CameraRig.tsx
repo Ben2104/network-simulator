@@ -46,9 +46,9 @@ const ELEVATION = 0.9;
 
 /**
  * Frames every point: projects them through a camera looking from the wide-shot direction, then
- * binary-searches the distance and re-centres the target until the projected box fills about 85%
- * of the view. Tilt makes the near (south) side take more screen space, which a bounding circle
- * alone misjudges.
+ * binary-searches the distance and re-centres the target until the projected box fits inside
+ * the view with margins (more at the top, where the camera bar sits). Tilt makes the near
+ * (south) side take more screen space, which a bounding circle alone misjudges.
  */
 function overviewShot(points: readonly Vec2[], fov: number, aspect: number): Shot {
   const cam = new PerspectiveCamera(fov, aspect, 1, 50000);
@@ -90,7 +90,8 @@ function overviewShot(points: readonly Vec2[], fov: number, aspect: number): Sho
     for (let i = 0; i < 30; i++) {
       const mid = (lo + hi) / 2;
       const b = box(mid);
-      if (Math.max(-b.x0, b.x1, -b.y0, b.y1) > 0.85) lo = mid;
+      // Extra room at the top for the camera bar and the Oregon label.
+      if (Math.max(-b.x0 / 0.88, b.x1 / 0.88, -b.y0 / 0.9, b.y1 / 0.74) > 1) lo = mid;
       else hi = mid;
     }
     d = hi;
