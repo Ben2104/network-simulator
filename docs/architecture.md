@@ -150,7 +150,7 @@ the keyboard/screen-reader path for toggling failures, and the Playwright E2E ta
 
 ## Network topology (fixed)
 
-19 nodes, 24 roads. Real places at approximate city coordinates; links are hand-picked and
+27 nodes, 35 roads. Real places at approximate city coordinates; links are hand-picked and
 illustrative. Source of truth is `apps/server/src/graph/topology.ts`; a test keeps it equal to these tables. Link ID =
 `${source}--${target}`.
 
@@ -174,6 +174,14 @@ illustrative. Source of truth is `apps/server/src/graph/topology.ts`; a test kee
 | `eugene`        | Eugene              | router | Eugene, OR          | 44.0521 | -123.0868 |
 | `bend`          | Bend                | router | Bend, OR            | 44.0582 | -121.3153 |
 | `portland`      | Portland            | router | Portland, OR        | 45.5152 | -122.6784 |
+| `barstow`       | Barstow             | router | Barstow, CA         | 34.8958 | -117.0173 |
+| `las-vegas`     | Las Vegas           | router | Las Vegas, NV       | 36.1699 | -115.1398 |
+| `tonopah`       | Tonopah             | router | Tonopah, NV         | 38.0672 | -117.2301 |
+| `winnemucca`    | Winnemucca          | router | Winnemucca, NV      | 40.973  | -117.7357 |
+| `boise`         | Boise               | router | Boise, ID           | 43.615  | -116.2023 |
+| `ontario`       | Ontario             | router | Ontario, OR         | 44.0266 | -116.9629 |
+| `burns`         | Burns               | router | Burns, OR           | 43.5862 | -119.0541 |
+| `pendleton`     | Pendleton           | router | Pendleton, OR       | 45.6721 | -118.7886 |
 | `oregon-dc`     | US-West Data Center | server | Boardman, OR        | 45.8399 | -119.7006 |
 
 Roads: csulb–lb-isp, csulb–el-segundo, lb-isp–la-wilshire, lb-isp–riverside,
@@ -181,24 +189,31 @@ la-wilshire–bakersfield, riverside–bakersfield, el-segundo–slo, bakersfiel
 slo–san-jose, fresno–sacramento, san-jose–oakland, oakland–sacramento, oakland–redding,
 sacramento–redding, sacramento–reno, reno–klamath-falls, redding–medford,
 medford–klamath-falls, medford–eugene, klamath-falls–bend, eugene–bend, eugene–portland,
-bend–oregon-dc, portland–oregon-dc. Longest: reno–klamath-falls, 342 km.
+bend–oregon-dc, portland–oregon-dc, riverside–barstow, barstow–las-vegas, las-vegas–tonopah,
+tonopah–winnemucca, reno–winnemucca, winnemucca–boise, boise–ontario, ontario–pendleton,
+pendleton–oregon-dc, bend–burns, burns–ontario. Longest: reno–klamath-falls, 342 km.
 
 Two station-disjoint corridors: **coast** (El Segundo → SLO → San Jose → Oakland → Redding →
 Medford → Eugene) and **inland** (LB ISP → LA/Riverside → Bakersfield → Fresno → Sacramento →
-Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon.
+Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon. A third, longer
+**east** (desert) corridor follows the I-15, US-95, I-84 and US-20 long-haul routes: Riverside →
+Barstow → Las Vegas → Tonopah → Winnemucca → Boise → Ontario → Pendleton, with cross-links
+Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops it never beats the 9-hop default; it carries
+traffic only when both western corridors are cut.
 
 ### Demo routes (asserted in tests)
 
 BFS neighbors are sorted by code-unit string order (not `localeCompare`), so routes never depend
 on server locale.
 
-| Failures                 | Route                                                                                                      |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
-| none                     | csulb → el-segundo → slo → san-jose → oakland → redding → medford → eugene → bend → oregon-dc (9 hops)     |
-| station `oakland`        | csulb → lb-isp → la-wilshire → bakersfield → fresno → sacramento → reno → klamath-falls → bend → oregon-dc |
-| road `oakland--redding`  | csulb → el-segundo → slo → san-jose → oakland → sacramento → reno → klamath-falls → bend → oregon-dc       |
-| `sacramento` + `redding` | none — BFS explores 10 stations, "No route available"                                                      |
-| start at `sacramento`    | sacramento → reno → klamath-falls → bend → oregon-dc                                                       |
+| Failures                             | Route                                                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| none                                 | csulb → el-segundo → slo → san-jose → oakland → redding → medford → eugene → bend → oregon-dc (9 hops)                      |
+| station `oakland`                    | csulb → lb-isp → la-wilshire → bakersfield → fresno → sacramento → reno → klamath-falls → bend → oregon-dc                  |
+| road `oakland--redding`              | csulb → el-segundo → slo → san-jose → oakland → sacramento → reno → klamath-falls → bend → oregon-dc                        |
+| `sacramento` + `redding`             | csulb → lb-isp → riverside → barstow → las-vegas → tonopah → winnemucca → boise → ontario → pendleton → oregon-dc (10 hops) |
+| `sacramento` + `redding` + `barstow` | none — BFS explores 10 stations, "No route available"                                                                       |
+| start at `sacramento`                | sacramento → reno → klamath-falls → bend → oregon-dc                                                                        |
 
 ### Packetization examples
 

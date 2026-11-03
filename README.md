@@ -196,10 +196,10 @@ Settings → Branches (or Rules) for `main`:
 Foundation done: monorepo, CI, Render blueprint, shared contract, BFS with tests, 2D SVG view
 with send/reset and toggles. The shared contract is v2 (lat/lon nodes, `distanceKm` links,
 `/packetize` schemas, `fromNodeId` on `/route`, `project()`, `haversineKm()`), and the server
-serves the fixed West Coast topology (19 stations, 24 roads).
+serves the fixed West Coast topology (27 stations, 35 roads).
 
 Next ([Plan 1](docs/superpowers/plans/2026-10-19-plan-1-contract-backend-v2.md)): West Coast
-topology (19 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
+topology (27 stations, see [architecture](docs/architecture.md#network-topology-fixed)),
 `/packetize`, `fromNodeId`; then `sim/` reducer and timeline,
 3D scene and cars, component and E2E tests. See the status table in
 [docs/architecture.md](docs/architecture.md#implementation-status).

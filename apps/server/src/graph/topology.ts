@@ -4,8 +4,10 @@ import { haversineKm, type Network, type NetworkLink, type NetworkNode } from '@
  * Illustrative West Coast network: real places (approximate city coordinates), hand-picked links.
  * NOT real ISP topology. Fixed so every presentation is reproducible.
  *
- * Two station-disjoint corridors (coast via Oakland/Redding/Medford, inland via
- * Bakersfield/Fresno/Sacramento/Reno) so any single router failure still has a detour.
+ * Three corridors: coast (Oakland/Redding/Medford), inland (Bakersfield/Fresno/Sacramento/Reno)
+ * and east (Barstow/Las Vegas/Tonopah/Winnemucca/Boise/Pendleton). Coast and inland are
+ * station-disjoint, so any single router failure has a detour; east is one hop longer than the
+ * default route, so it only wins when both western corridors are cut.
  */
 const NODES: readonly NetworkNode[] = [
   {
@@ -139,6 +141,70 @@ const NODES: readonly NetworkNode[] = [
     place: 'Portland, OR',
   },
   {
+    id: 'barstow',
+    label: 'Barstow',
+    kind: 'router',
+    lat: 34.8958,
+    lon: -117.0173,
+    place: 'Barstow, CA',
+  },
+  {
+    id: 'las-vegas',
+    label: 'Las Vegas',
+    kind: 'router',
+    lat: 36.1699,
+    lon: -115.1398,
+    place: 'Las Vegas, NV',
+  },
+  {
+    id: 'tonopah',
+    label: 'Tonopah',
+    kind: 'router',
+    lat: 38.0672,
+    lon: -117.2301,
+    place: 'Tonopah, NV',
+  },
+  {
+    id: 'winnemucca',
+    label: 'Winnemucca',
+    kind: 'router',
+    lat: 40.973,
+    lon: -117.7357,
+    place: 'Winnemucca, NV',
+  },
+  {
+    id: 'boise',
+    label: 'Boise',
+    kind: 'router',
+    lat: 43.615,
+    lon: -116.2023,
+    place: 'Boise, ID',
+  },
+  {
+    id: 'ontario',
+    label: 'Ontario',
+    kind: 'router',
+    lat: 44.0266,
+    lon: -116.9629,
+    place: 'Ontario, OR',
+  },
+  {
+    id: 'burns',
+    label: 'Burns',
+    kind: 'router',
+    lat: 43.5862,
+    lon: -119.0541,
+    place: 'Burns, OR',
+  },
+  {
+    id: 'pendleton',
+    label: 'Pendleton',
+    kind: 'router',
+    lat: 45.6721,
+    lon: -118.7886,
+    place: 'Pendleton, OR',
+  },
+  {
     id: 'oregon-dc',
     label: 'US-West Data Center',
     kind: 'server',
@@ -173,6 +239,18 @@ const LINKS: readonly (readonly [string, string])[] = [
   ['eugene', 'portland'],
   ['bend', 'oregon-dc'],
   ['portland', 'oregon-dc'],
+  // East (desert) corridor along I-15, US-95, I-80, I-84 and US-20: a third, longer detour.
+  ['riverside', 'barstow'],
+  ['barstow', 'las-vegas'],
+  ['las-vegas', 'tonopah'],
+  ['tonopah', 'winnemucca'],
+  ['reno', 'winnemucca'],
+  ['winnemucca', 'boise'],
+  ['boise', 'ontario'],
+  ['ontario', 'pendleton'],
+  ['pendleton', 'oregon-dc'],
+  ['bend', 'burns'],
+  ['burns', 'ontario'],
 ];
 
 const nodeById = new Map(NODES.map((n) => [n.id, n]));
