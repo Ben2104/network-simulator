@@ -278,6 +278,10 @@ view (`view2d/`) draws those positions; a 3D scene can read the same frames.
 
 Base path `/api`. JSON bodies. Source of truth: `packages/shared/src/schemas.ts`.
 
+> **Frozen (v2, 2026-11-02).** Build against these shapes. A breaking change needs a PR approved
+> by the contract owner and an announcement in the team channel. Mock responses for every
+> endpoint: [`packages/shared/mocks/`](../packages/shared/mocks/README.md).
+
 Outside the base path: `GET /` returns `{ "message": "Welcome to Network Simulator", "docs": "/docs", "health": "/api/health" }`; `/docs` serves Swagger UI and `/docs/json` the OpenAPI document.
 
 ### `GET /api/health`

@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { ApiError, Network, RouteResponse } from '@netsim/shared';
+import { LIMITS, type ApiError, type Network, type RouteResponse } from '@netsim/shared';
 import { buildApp } from './app.js';
+import {
+  DOCUMENTED_ROUTES,
+  SCENARIOS,
+  expectDocumented,
+  toRouteRequest,
+} from './test/demo-routes.js';
 
 let app: FastifyInstance;
 beforeAll(async () => {
@@ -67,7 +73,44 @@ describe('API', () => {
     expect(body.path.at(0)).toBe('csulb');
     expect(body.path.at(-1)).toBe('oregon-dc');
     expect(body.linkPath).toHaveLength(body.path.length - 1);
-    expect(body).not.toHaveProperty('packets');
+    expect(Object.keys(body).sort()).toEqual(['linkPath', 'path', 'status', 'visitOrder']);
+  });
+
+  it.each(DOCUMENTED_ROUTES)(
+    'POST /api/route returns the documented demo route: %s',
+    async (label, expected) => {
+      const res = await route(toRouteRequest(SCENARIOS[label]!));
+      expect(res.statusCode).toBe(200);
+      const body = res.json<RouteResponse>();
+      expectDocumented({ ...body, routed: body.status === 'routed' }, expected);
+    },
+  );
+
+  it('POST /api/route from the server itself is a zero-hop route', async () => {
+    const body = (
+      await route({ fromNodeId: 'oregon-dc', disabledNodeIds: [], disabledLinkIds: [] })
+    ).json<RouteResponse>();
+    expect(body).toEqual({
+      status: 'routed',
+      visitOrder: [{ nodeId: 'oregon-dc', parentId: null, viaLinkId: null, depth: 0 }],
+      path: ['oregon-dc'],
+      linkPath: [],
+    });
+  });
+
+  it('POST /api/route from a disabled station is unreachable without searching', async () => {
+    const res = await route({
+      fromNodeId: 'oakland',
+      disabledNodeIds: ['oakland'],
+      disabledLinkIds: [],
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<RouteResponse>()).toEqual({
+      status: 'unreachable',
+      visitOrder: [],
+      path: [],
+      linkPath: [],
+    });
   });
 
   it('POST /api/route starts at fromNodeId', async () => {
@@ -105,6 +148,24 @@ describe('API', () => {
     ['the removed v1 message field', { message: 'hi', disabledNodeIds: [], disabledLinkIds: [] }],
     ['a malformed fromNodeId', { fromNodeId: 'R4!', disabledNodeIds: [], disabledLinkIds: [] }],
     ['duplicate disabled IDs', { disabledNodeIds: ['oakland', 'oakland'], disabledLinkIds: [] }],
+    ['an empty fromNodeId', { fromNodeId: '', disabledNodeIds: [], disabledLinkIds: [] }],
+    [
+      'an over-long ID',
+      { fromNodeId: 'x'.repeat(LIMITS.maxIdLength + 1), disabledNodeIds: [], disabledLinkIds: [] },
+    ],
+    [
+      'too many disabled IDs',
+      {
+        disabledNodeIds: Array.from({ length: LIMITS.maxDisabledIds + 1 }, (_, i) => `r${i}`),
+        disabledLinkIds: [],
+      },
+    ],
+    // No type coercion: Fastify would otherwise turn these into valid-looking values.
+    ['a numeric fromNodeId', { fromNodeId: 42, disabledNodeIds: [], disabledLinkIds: [] }],
+    ['a null fromNodeId', { fromNodeId: null, disabledNodeIds: [], disabledLinkIds: [] }],
+    ['a string instead of an ID list', { disabledNodeIds: 'oakland', disabledLinkIds: [] }],
+    ['numbers in an ID list', { disabledNodeIds: [1], disabledLinkIds: [] }],
+    ['an array body', []],
   ])('rejects %s with VALIDATION_ERROR', async (_, payload) => {
     const res = await route(payload);
     expect(res.statusCode).toBe(400);
@@ -119,6 +180,18 @@ describe('API', () => {
     const res = await route(payload);
     expect(res.statusCode).toBe(400);
     expect(res.json<ApiError>().error.code).toBe('UNKNOWN_ID');
+  });
+
+  it('names every unknown ID in the UNKNOWN_ID message', async () => {
+    const res = await route({
+      fromNodeId: 'atlantis',
+      disabledNodeIds: ['oakland', 'r99'],
+      disabledLinkIds: ['oakland--r99'],
+    });
+    expect(res.json<ApiError>().error).toEqual({
+      code: 'UNKNOWN_ID',
+      message: 'Unknown node or link IDs: atlantis, r99, oakland--r99',
+    });
   });
 
   it('returns NOT_FOUND for unknown routes', async () => {
