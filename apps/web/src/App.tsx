@@ -3,47 +3,31 @@ import type { Network } from '@netsim/shared';
 import { api } from './api/client';
 import type { CameraMode, RigApi } from './scene3d/CameraRig';
 import { SceneBoundary } from './scene3d/SceneBoundary';
-import { hasWebGL, prefersReducedMotion } from './scene3d/webgl';
+import { hasWebGL } from './scene3d/webgl';
 import { useSimulation } from './sim/useSimulation';
-import {
-  Banner,
-  CameraControls,
-  Footer,
-  Header,
-  Legend,
-  MapControls,
-  type View,
-} from './ui/Chrome';
+import { Banner, CameraControls, Footer, Header, Legend } from './ui/Chrome';
 import { countCars, describePhase } from './ui/copy';
 import { NetworkStatus, RouteCard, SendPlayback, YourFile } from './ui/Sidebar';
-import { layoutNetwork } from './view2d/layout';
-import { NetworkGraph } from './view2d/NetworkGraph';
 
 const EMPTY: ReadonlySet<string> = new Set();
 const NO_CARS: readonly never[] = [];
 
-// three.js only loads when the 3D view is shown, so the 2D view stays light.
+// three.js loads in its own chunk so the page shell paints first.
 const Scene = lazy(() => import('./scene3d/Scene'));
 
-const NO_WEBGL = '3D view needs WebGL, which this browser does not provide — showing the 2D view.';
-
-/** 3D by default; 2D when WebGL is missing or the user prefers reduced motion (spec Q9). */
-function initialView(): { view: View; no3d: string | null } {
-  if (!hasWebGL()) return { view: '2d', no3d: NO_WEBGL };
-  return { view: prefersReducedMotion() ? '2d' : '3d', no3d: null };
-}
+const NO_WEBGL =
+  'The map needs WebGL, which this browser does not provide. Turn on hardware acceleration or try another browser. You can still submit files and toggle stations in the sidebar.';
 
 export function App() {
   const [network, setNetwork] = useState<Network | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [zoom, setZoom] = useState(1);
-  const [{ view, no3d }, setViewState] = useState(initialView);
+  /** Why the 3D map cannot show (no WebGL, or the scene crashed); null when it can. */
+  const [no3d, setNo3d] = useState<string | null>(() => (hasWebGL() ? null : NO_WEBGL));
   const [cameraMode, setCameraMode] = useState<CameraMode>('auto');
   const rigRef = useRef<RigApi | null>(null);
-  const setView = (v: View) => setViewState((s) => ({ ...s, view: v }));
   const on3dError = (message: string) =>
-    setViewState({ view: '2d', no3d: `3D view stopped (${message}) — showing the 2D view.` });
+    setNo3d(`The 3D map stopped (${message}). Reload the page to try again.`);
 
   useEffect(() => {
     api
@@ -55,8 +39,7 @@ export function App() {
       .catch((e: unknown) => setLoadError(e instanceof Error ? e.message : String(e)));
   }, [attempt]);
 
-  const layout = useMemo(() => (network ? layoutNetwork(network) : null), [network]);
-  const sim = useSimulation(network, layout);
+  const sim = useSimulation(network);
   const { phase, route, upload } = sim;
 
   const showPath = route?.status === 'routed' && (phase === 'driving' || phase === 'delivered');
@@ -93,7 +76,7 @@ export function App() {
 
   return (
     <div className="shell">
-      <Header view={view} onView={setView} no3d={no3d} />
+      <Header />
       <Banner
         tone={copy.tone}
         text={banner}
@@ -111,7 +94,7 @@ export function App() {
       />
       <div className="body">
         <main className="canvas">
-          {network && layout && view === '3d' ? (
+          {network && !no3d ? (
             <>
               <div className="scene3d">
                 <SceneBoundary onError={on3dError}>
@@ -141,27 +124,10 @@ export function App() {
               <CameraControls mode={cameraMode} onMode={setCameraMode} rigRef={rigRef} />
               <Legend />
             </>
-          ) : network && layout ? (
-            <>
-              {no3d && <p className="view-note">{no3d}</p>}
-              <NetworkGraph
-                network={network}
-                layout={layout}
-                carCount={carTotal}
-                frames={sim.frames}
-                disabledNodeIds={sim.disabledNodeIds}
-                disabledLinkIds={sim.disabledLinkIds}
-                pathLinkIds={pathLinkIds}
-                pathNodeIds={pathNodeIds}
-                visitedNodeIds={visitedNodeIds}
-                canToggle={sim.canToggleFailures}
-                zoom={zoom}
-                onToggleNode={sim.toggleNode}
-                onToggleLink={sim.toggleLink}
-              />
-              <MapControls zoom={zoom} onZoom={setZoom} />
-              <Legend />
-            </>
+          ) : network && no3d ? (
+            <p className="canvas-note" role="alert">
+              {no3d}
+            </p>
           ) : (
             <p className="canvas-note">{loadError ? 'Network unavailable.' : 'Loading network…'}</p>
           )}

@@ -26,10 +26,6 @@ async function canvasSpread(page: Page): Promise<number> {
 
 test('3D canvas mounts, is non-blank and runs Submit → Send', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('button', { name: '3D view' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
   const canvas = page.locator('.scene3d canvas');
   await expect(canvas).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => canvasSpread(page), { timeout: 30_000 }).toBeGreaterThan(40);
@@ -39,7 +35,8 @@ test('3D canvas mounts, is non-blank and runs Submit → Send', async ({ page })
 
   await page.getByRole('button', { name: 'Presets' }).click();
   await page.getByRole('button', { name: /essay\.pdf/ }).click();
-  await expect(page.getByText('client · 24 cars')).toBeAttached();
+  // 1 MiB → 3 cars under the size-based plan (10 MB fills 24).
+  await expect(page.getByText('client · 3 cars')).toBeAttached();
   await page.getByRole('radio', { name: '2×' }).click();
   await page.getByRole('button', { name: /Send/ }).first().click();
   await expect(page.getByText('STATE:')).toContainText(/SEARCHING|DRIVING|DELIVERED/, {

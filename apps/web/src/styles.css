@@ -46,8 +46,7 @@ textarea {
 }
 
 button:focus-visible,
-textarea:focus-visible,
-.station:focus-visible {
+textarea:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -111,32 +110,6 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-}
-.view-switch {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--color-border);
-  border-radius: 10px;
-  background: var(--color-surface);
-}
-.view-switch button {
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
-  font-size: 13px;
-  cursor: pointer;
-}
-.view-switch button:disabled {
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
-.view-switch button.active {
-  background: var(--color-bg);
-  box-shadow: 0 0 0 1px var(--color-primary);
-  color: var(--color-primary);
-  font-weight: 600;
 }
 .icon-btn {
   width: 36px;
@@ -233,12 +206,6 @@ h1 {
 .canvas-note {
   margin: 24px;
   color: var(--color-text-muted);
-}
-.graph {
-  display: block;
-  width: 100%;
-  height: 100%;
-  touch-action: none;
 }
 .sidebar {
   display: flex;
@@ -373,85 +340,6 @@ h1 {
 .key.broken {
   border-color: var(--color-danger);
   border-radius: 50%;
-}
-
-/* SVG map */
-.link line {
-  stroke: #4b5f53;
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-.link.on-path line {
-  stroke: var(--color-route);
-  stroke-width: 6;
-}
-.link.disabled line {
-  stroke: var(--color-danger);
-  stroke-width: 3;
-  stroke-dasharray: 7 6;
-}
-.link line.hit {
-  stroke: transparent;
-  stroke-width: 16;
-  stroke-dasharray: none;
-  cursor: pointer;
-}
-.station circle {
-  fill: #fff;
-  stroke: #3d5246;
-  stroke-width: 3;
-}
-.station.toggleable {
-  cursor: pointer;
-}
-.station.visited circle {
-  stroke: var(--color-explore);
-}
-.station.on-path circle {
-  stroke: var(--color-route);
-  stroke-width: 4;
-}
-.station.disabled circle {
-  stroke: var(--color-danger);
-  fill: var(--color-danger-soft);
-}
-.station .cross {
-  stroke: var(--color-danger);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  fill: none;
-}
-.label {
-  font-size: 14px;
-  fill: var(--color-text);
-  paint-order: stroke;
-  stroke: var(--color-map-ground);
-  stroke-width: 4px;
-  stroke-linejoin: round;
-  pointer-events: none;
-}
-.label.strong {
-  font-weight: 600;
-  font-size: 15px;
-}
-.lot rect:first-child {
-  fill: #fff;
-  stroke: #14231b;
-  stroke-width: 2.5;
-}
-.lot .slot {
-  fill: var(--color-border);
-}
-.car.parked {
-  fill: #14231b;
-}
-.car.driving rect:first-child {
-  fill: #14231b;
-  stroke: #fff;
-  stroke-width: 1.5;
-}
-.car .windshield {
-  fill: #8fd0a6;
 }
 
 /* Cards */
@@ -866,19 +754,6 @@ textarea {
   background: rgb(255 255 255 / 0.9);
   color: var(--color-text-muted);
   font-size: 12px;
-}
-.view-note {
-  position: absolute;
-  left: 50%;
-  top: 16px;
-  transform: translateX(-50%);
-  margin: 0;
-  padding: 7px 12px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-explore-soft);
-  color: var(--color-text);
-  font-size: 13px;
 }
 .label3d {
   display: flex;
