@@ -145,6 +145,70 @@
       "place": "Portland, OR"
     },
     {
+      "id": "barstow",
+      "label": "Barstow",
+      "kind": "router",
+      "lat": 34.8958,
+      "lon": -117.0173,
+      "place": "Barstow, CA"
+    },
+    {
+      "id": "las-vegas",
+      "label": "Las Vegas",
+      "kind": "router",
+      "lat": 36.1699,
+      "lon": -115.1398,
+      "place": "Las Vegas, NV"
+    },
+    {
+      "id": "tonopah",
+      "label": "Tonopah",
+      "kind": "router",
+      "lat": 38.0672,
+      "lon": -117.2301,
+      "place": "Tonopah, NV"
+    },
+    {
+      "id": "winnemucca",
+      "label": "Winnemucca",
+      "kind": "router",
+      "lat": 40.973,
+      "lon": -117.7357,
+      "place": "Winnemucca, NV"
+    },
+    {
+      "id": "boise",
+      "label": "Boise",
+      "kind": "router",
+      "lat": 43.615,
+      "lon": -116.2023,
+      "place": "Boise, ID"
+    },
+    {
+      "id": "ontario",
+      "label": "Ontario",
+      "kind": "router",
+      "lat": 44.0266,
+      "lon": -116.9629,
+      "place": "Ontario, OR"
+    },
+    {
+      "id": "burns",
+      "label": "Burns",
+      "kind": "router",
+      "lat": 43.5862,
+      "lon": -119.0541,
+      "place": "Burns, OR"
+    },
+    {
+      "id": "pendleton",
+      "label": "Pendleton",
+      "kind": "router",
+      "lat": 45.6721,
+      "lon": -118.7886,
+      "place": "Pendleton, OR"
+    },
+    {
       "id": "oregon-dc",
       "label": "US-West Data Center",
       "kind": "server",
@@ -297,6 +361,72 @@
       "source": "portland",
       "target": "oregon-dc",
       "distanceKm": 234.1
+    },
+    {
+      "id": "riverside--barstow",
+      "source": "riverside",
+      "target": "barstow",
+      "distanceKm": 106.9
+    },
+    {
+      "id": "barstow--las-vegas",
+      "source": "barstow",
+      "target": "las-vegas",
+      "distanceKm": 221.2
+    },
+    {
+      "id": "las-vegas--tonopah",
+      "source": "las-vegas",
+      "target": "tonopah",
+      "distanceKm": 280.8
+    },
+    {
+      "id": "tonopah--winnemucca",
+      "source": "tonopah",
+      "target": "winnemucca",
+      "distanceKm": 326
+    },
+    {
+      "id": "reno--winnemucca",
+      "source": "reno",
+      "target": "winnemucca",
+      "distanceKm": 238.4
+    },
+    {
+      "id": "winnemucca--boise",
+      "source": "winnemucca",
+      "target": "boise",
+      "distanceKm": 319.7
+    },
+    {
+      "id": "boise--ontario",
+      "source": "boise",
+      "target": "ontario",
+      "distanceKm": 76.3
+    },
+    {
+      "id": "ontario--pendleton",
+      "source": "ontario",
+      "target": "pendleton",
+      "distanceKm": 232.8
+    },
+    {
+      "id": "pendleton--oregon-dc",
+      "source": "pendleton",
+      "target": "oregon-dc",
+      "distanceKm": 73.2
+    },
+    {
+      "id": "bend--burns",
+      "source": "bend",
+      "target": "burns",
+      "distanceKm": 188.8
+    },
+    {
+      "id": "burns--ontario",
+      "source": "burns",
+      "target": "ontario",
+      "distanceKm": 174.8
     }
   ],
   "clientId": "csulb",

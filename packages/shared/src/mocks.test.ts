@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { Value } from '@sinclair/typebox/value';
 import type { TSchema } from '@sinclair/typebox';
 import { LIMITS } from './limits.js';
+import { carCountFor, toCarPlan } from './packetize.js';
 import {
   NetworkSchema,
   PacketizeResponseSchema,
@@ -50,17 +51,18 @@ describe('mock responses match the frozen v2 contract', () => {
   });
 });
 
-describe('packetize-1mib.json (hand-written until POST /api/packetize lands)', () => {
-  it('is the documented 1 MiB example: 700 packets in 24 cars', () => {
+describe('packetize-1mib.json (generated from toCarPlan until POST /api/packetize lands)', () => {
+  it('is the documented 1 MiB example: 700 packets in 3 cars (size-based plan)', () => {
     expect(packetize.totalBytes).toBe(1024 ** 2);
     expect(packetize.packetSizeBytes).toBe(LIMITS.packetSizeBytes);
     expect(packetize.packetCount).toBe(Math.ceil(packetize.totalBytes / LIMITS.packetSizeBytes));
-    expect(packetize.cars).toHaveLength(LIMITS.maxCars);
+    expect(packetize.cars).toHaveLength(carCountFor(packetize.totalBytes));
   });
 
-  it('spreads packets evenly: cars 0–3 carry 30 packets, the rest 29', () => {
+  it('equals toCarPlan(1 MiB): 234, 233, 233 packets', () => {
+    expect(packetize).toEqual(toCarPlan(1024 ** 2));
     const counts = packetize.cars.map((c) => c.lastPacket - c.firstPacket + 1);
-    expect(counts).toEqual([...Array(4).fill(30), ...Array(20).fill(29)]);
+    expect(counts).toEqual([234, 233, 233]);
   });
 
   it('covers every packet exactly once, in order, and every byte', () => {
