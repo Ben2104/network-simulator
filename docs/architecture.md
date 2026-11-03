@@ -59,7 +59,8 @@ apps/
   web/src/
     api/        typed fetch client
     sim/        useSimulation reducer, timeline.ts (pure)
-    scene3d/    Scene, Ground, ParkingLot, Station, Road, Cars, CameraRig, westcoast.json
+    scene3d/    Scene, Ground, ParkingLot, Station, Road, Cars, CameraRig, Labels,
+                world.ts (pure layout), westcoast.json
     view2d/     SVG graph, cars as dots, keyboard toggles
     ui/         FilePanel, SendBar, BfsPanel, NetworkStatus, StatusBanner, ViewToggle, Legend
 packages/shared/src/
@@ -137,8 +138,10 @@ unit-testable without WebGL.
 - Ground: Natural Earth (public domain) CA/OR/WA outlines, simplified with mapshaper, committed
   as `westcoast.json`, extruded flat. Equirectangular projection; distortion is negligible at
   this scale.
-- Models: primitives first; Kenney Car/City kits (CC0) swapped in behind the same components.
-  Sources recorded in `apps/web/ASSETS.md`.
+- Models: procedural primitives (`scene3d/`); Kenney Car/City kits (CC0) to be swapped in behind
+  the same components (#22). Sources recorded in `apps/web/ASSETS.md`.
+- 3D keeps true geography (no 68° rotation, no Los Angeles spread); the camera does the framing.
+  Lots extend inland (east) of their gate so they never sit in the ocean.
 
 ### 10. 2D fallback
 
@@ -245,6 +248,31 @@ view (`view2d/`) draws those positions; a 3D scene can read the same frames.
   it may differ from the highlighted BFS path.
 - **Map layout.** `view2d/layout.ts` applies the shared projection, spreads the dense Long Beach
   stations, and rotates the map 68° clockwise (the same schematic liberties as the 3D design).
+
+## Playback (3D)
+
+`scene3d/` renders the same run from the same inputs: network, failure and BFS sets, and the
+`Timeline` from `sim/timeline.ts`. `useSimulation` exposes `timeline` and a read-only `clockRef`;
+3D components read the clock inside `useFrame`, so no React state changes per frame.
+
+- **Pure layout.** `scene3d/world.ts` (no three.js imports, unit-tested) places stations with
+  `project()`, bows each road into a slight quadratic arch, lays out 24-slot lots, and builds
+  each car's path: slot → aisle → CSULB gate → its route's road curves (reversed when a road is
+  driven target → source) → Oregon gate → slot. A car's progress is
+  `(t − departAt) / (arriveAt − departAt)` from the shared timeline, so 2D and 3D cars leave and
+  arrive together even though path lengths differ.
+- **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the 2D view
+  and BFS panel use. Labels show "BFS depth N" while searching.
+- **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, beacon): five draw
+  calls for 24 cars. Beacons above each car scale with camera distance so cars stay visible in
+  the overview.
+- **Labels.** Plain DOM in a layer over the canvas, projected and decluttered by priority each
+  frame (lots > broken > route > visited > idle).
+- **Camera.** `CameraRig` modes: Auto (lot after Submit, overview while searching, chase the
+  lead car while driving, Oregon lot when delivered), Overview, Follow lead car. Any drag or
+  scroll switches to Free. The sun's shadow box follows the orbit target.
+- **Fallback.** 3D is the default unless WebGL is missing or `prefers-reduced-motion` is set.
+  three.js loads lazily; an error boundary drops to 2D with a message if the scene fails.
 
 ## API contract
 
@@ -374,14 +402,14 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 
 ## Testing
 
-| Layer      | Tool                       | Covers                                                                |
-| ---------- | -------------------------- | --------------------------------------------------------------------- |
-| Algorithms | Vitest                     | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
-| API        | Vitest + `inject()`        | Endpoints, validation, error codes                                    |
-| Sim        | Vitest                     | Reducer transitions, locked toggles, timeline ordering                |
-| UI         | Vitest + Testing Library   | Panels, 2D keyboard toggles                                           |
-| E2E        | Playwright (2D view)       | Submit → Send → delivered; break → reroute; cut all → no route; reset |
-| 3D         | Manual checklist + 1 smoke | Canvas mounts and is non-blank (no WebGL pixel diffs)                 |
+| Layer      | Tool                     | Covers                                                                |
+| ---------- | ------------------------ | --------------------------------------------------------------------- |
+| Algorithms | Vitest                   | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
+| API        | Vitest + `inject()`      | Endpoints, validation, error codes                                    |
+| Sim        | Vitest                   | Reducer transitions, locked toggles, timeline ordering                |
+| UI         | Vitest + Testing Library | Panels, 2D keyboard toggles                                           |
+| E2E        | Playwright (2D view)     | Submit → Send → delivered; break → reroute; cut all → no route; reset |
+| 3D         | Manual checklist + smoke | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 
 ## Implementation status
 
@@ -394,7 +422,7 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | West Coast topology, lat/lon, distance | Done                                              |
 | `/packetize`, `fromNodeId`             | To do (web packetizes client-side meanwhile)      |
 | `sim/` hook + timeline                 | Done for 2D (`useSimulation`, `timeline.ts`)      |
-| 3D scene, cars, camera                 | To do                                             |
+| 3D scene, cars, camera                 | Done (primitives); Kenney models pending (#22)    |
 | Component + E2E tests                  | To do                                             |
 
 ## Roadmap

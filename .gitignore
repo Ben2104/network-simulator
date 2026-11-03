@@ -12,3 +12,5 @@ coverage/
 !CLAUDE.md
 !.claude/
 !.claude/skills/
+playwright-report/
+test-results/

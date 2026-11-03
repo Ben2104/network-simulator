@@ -8,7 +8,13 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['apps/server/**/*.ts', 'packages/shared/**/*.ts'],
+    files: [
+      'apps/server/**/*.ts',
+      'packages/shared/**/*.ts',
+      'apps/web/scripts/**/*.mjs',
+      'apps/web/e2e/**/*.ts',
+      'apps/web/playwright.config.ts',
+    ],
     languageOptions: { globals: globals.node },
   },
   {
