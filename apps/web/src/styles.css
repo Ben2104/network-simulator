@@ -804,3 +804,126 @@ textarea {
     padding-right: 16px;
   }
 }
+
+/* 3D view */
+.scene3d {
+  position: absolute;
+  inset: 0;
+}
+.scene3d canvas {
+  touch-action: none;
+}
+.camera-modes {
+  position: absolute;
+  top: 60px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+.camera-modes button {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font-size: 13px;
+  cursor: pointer;
+}
+.camera-modes button.active {
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  font-weight: 600;
+}
+.camera-free {
+  padding: 0 8px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.compass.north-up i {
+  transform: none;
+}
+.hint3d {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.9);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.view-note {
+  position: absolute;
+  left: 50%;
+  top: 16px;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-explore-soft);
+  color: var(--color-text);
+  font-size: 13px;
+}
+.label3d {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.92);
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: opacity 0.2s;
+  box-shadow: 0 1px 2px rgb(15 31 23 / 0.12);
+}
+.label3d small {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.label3d.lot {
+  border-color: var(--color-primary);
+  font-weight: 700;
+}
+.label3d.visited {
+  border-color: var(--color-explore);
+  color: var(--color-explore);
+}
+.label3d.path {
+  border-color: var(--color-route);
+  color: var(--color-route-text);
+}
+.label3d.broken {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger-text);
+}
+.label3d.broken small {
+  color: var(--color-danger-text);
+  font-weight: 600;
+}
+.car-tip {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-size: 12px;
+  transform: translateY(-120%);
+  pointer-events: none;
+}
+.car-tip span {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  color: var(--color-text-muted);
+}

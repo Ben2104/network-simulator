@@ -1,7 +1,15 @@
 import { useState, type ReactNode } from 'react';
+import type { CameraMode } from '../scene3d/CameraRig';
 import type { Tone } from './copy';
 
-export function Header() {
+export type View = '3d' | '2d';
+
+export function Header(props: {
+  view: View;
+  onView: (v: View) => void;
+  /** Why 3D is unavailable (no WebGL, or the scene crashed); null when it can be used. */
+  no3d: string | null;
+}) {
   const [help, setHelp] = useState(false);
   return (
     <header className="header">
@@ -27,10 +35,23 @@ export function Header() {
       </div>
       <div className="header-right">
         <div className="view-switch" role="group" aria-label="View">
-          <button type="button" disabled title="The 3D view is not built yet">
+          <button
+            type="button"
+            className={props.view === '3d' ? 'active' : ''}
+            aria-pressed={props.view === '3d'}
+            disabled={props.no3d !== null}
+            title={props.no3d ?? 'Show the 3D map'}
+            onClick={() => props.onView('3d')}
+          >
             3D view
           </button>
-          <button type="button" className="active" aria-pressed="true">
+          <button
+            type="button"
+            className={props.view === '2d' ? 'active' : ''}
+            aria-pressed={props.view === '2d'}
+            title="Show the 2D map (keyboard and screen-reader friendly)"
+            onClick={() => props.onView('2d')}
+          >
             2D view
           </button>
         </div>
@@ -55,6 +76,10 @@ export function Header() {
           <p>
             Click a station or road to break it, then Send again. Use the speed control to slow the
             cars down for a presentation.
+          </p>
+          <p>
+            3D view: drag to orbit, right-drag to pan, scroll to zoom. Auto camera follows the
+            action; Follow lead car chases the first car and lets go as soon as you drag.
           </p>
         </div>
       )}
@@ -132,6 +157,40 @@ export function MapControls(props: { zoom: number; onZoom: (z: number) => void }
         <span>N</span>
         <i />
       </div>
+    </>
+  );
+}
+
+const CAMERA_MODES: { mode: Exclude<CameraMode, 'free'>; label: string; title: string }[] = [
+  { mode: 'auto', label: 'Auto', title: 'Camera follows the action for each phase' },
+  { mode: 'overview', label: 'Overview', title: 'Frame the whole network' },
+  { mode: 'follow', label: 'Follow lead car', title: 'Chase the car furthest along' },
+];
+
+export function CameraControls(props: { mode: CameraMode; onMode: (m: CameraMode) => void }) {
+  return (
+    <>
+      <div className="chip projection">Projection: 3D equirectangular · north up</div>
+      <div className="camera-modes" role="group" aria-label="Camera">
+        {CAMERA_MODES.map((m) => (
+          <button
+            key={m.mode}
+            type="button"
+            className={props.mode === m.mode ? 'active' : ''}
+            aria-pressed={props.mode === m.mode}
+            title={m.title}
+            onClick={() => props.onMode(m.mode)}
+          >
+            {m.label}
+          </button>
+        ))}
+        {props.mode === 'free' && <span className="camera-free">Free camera</span>}
+      </div>
+      <div className="compass north-up" aria-label="North is up">
+        <span>N</span>
+        <i />
+      </div>
+      <p className="hint3d">Drag to orbit · scroll to zoom · click a station or road to break it</p>
     </>
   );
 }
