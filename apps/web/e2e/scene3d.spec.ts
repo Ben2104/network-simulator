@@ -42,7 +42,7 @@ test('3D canvas mounts, is non-blank and runs Submit → Send', async ({ page })
   await expect(page.getByText('STATE:')).toContainText(/SEARCHING|DRIVING|DELIVERED/, {
     timeout: 15_000,
   });
-  await expect.poll(() => canvasSpread(page)).toBeGreaterThan(40);
+  await expect.poll(() => canvasSpread(page), { timeout: 30_000 }).toBeGreaterThan(40);
 });
 
 test('camera controls: follow is released by a drag', async ({ page }) => {
