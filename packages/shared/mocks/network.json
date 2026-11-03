@@ -1,0 +1,304 @@
+{
+  "nodes": [
+    {
+      "id": "csulb",
+      "label": "CSULB Parking Lot",
+      "kind": "client",
+      "lat": 33.7838,
+      "lon": -118.1141,
+      "place": "Long Beach, CA"
+    },
+    {
+      "id": "lb-isp",
+      "label": "Long Beach ISP",
+      "kind": "router",
+      "lat": 33.7701,
+      "lon": -118.1937,
+      "place": "Long Beach, CA"
+    },
+    {
+      "id": "el-segundo",
+      "label": "El Segundo",
+      "kind": "router",
+      "lat": 33.9192,
+      "lon": -118.4165,
+      "place": "El Segundo, CA"
+    },
+    {
+      "id": "la-wilshire",
+      "label": "One Wilshire",
+      "kind": "router",
+      "lat": 34.0488,
+      "lon": -118.2558,
+      "place": "Los Angeles, CA"
+    },
+    {
+      "id": "riverside",
+      "label": "Riverside",
+      "kind": "router",
+      "lat": 33.9806,
+      "lon": -117.3755,
+      "place": "Riverside, CA"
+    },
+    {
+      "id": "bakersfield",
+      "label": "Bakersfield",
+      "kind": "router",
+      "lat": 35.3733,
+      "lon": -119.0187,
+      "place": "Bakersfield, CA"
+    },
+    {
+      "id": "slo",
+      "label": "San Luis Obispo",
+      "kind": "router",
+      "lat": 35.2828,
+      "lon": -120.6596,
+      "place": "San Luis Obispo, CA"
+    },
+    {
+      "id": "fresno",
+      "label": "Fresno",
+      "kind": "router",
+      "lat": 36.7378,
+      "lon": -119.7871,
+      "place": "Fresno, CA"
+    },
+    {
+      "id": "san-jose",
+      "label": "San Jose",
+      "kind": "router",
+      "lat": 37.3382,
+      "lon": -121.8863,
+      "place": "San Jose, CA"
+    },
+    {
+      "id": "oakland",
+      "label": "Oakland",
+      "kind": "router",
+      "lat": 37.8044,
+      "lon": -122.2712,
+      "place": "Oakland, CA"
+    },
+    {
+      "id": "sacramento",
+      "label": "Sacramento",
+      "kind": "router",
+      "lat": 38.5816,
+      "lon": -121.4944,
+      "place": "Sacramento, CA"
+    },
+    {
+      "id": "reno",
+      "label": "Reno",
+      "kind": "router",
+      "lat": 39.5296,
+      "lon": -119.8138,
+      "place": "Reno, NV"
+    },
+    {
+      "id": "redding",
+      "label": "Redding",
+      "kind": "router",
+      "lat": 40.5865,
+      "lon": -122.3917,
+      "place": "Redding, CA"
+    },
+    {
+      "id": "klamath-falls",
+      "label": "Klamath Falls",
+      "kind": "router",
+      "lat": 42.2249,
+      "lon": -121.7817,
+      "place": "Klamath Falls, OR"
+    },
+    {
+      "id": "medford",
+      "label": "Medford",
+      "kind": "router",
+      "lat": 42.3265,
+      "lon": -122.8756,
+      "place": "Medford, OR"
+    },
+    {
+      "id": "eugene",
+      "label": "Eugene",
+      "kind": "router",
+      "lat": 44.0521,
+      "lon": -123.0868,
+      "place": "Eugene, OR"
+    },
+    {
+      "id": "bend",
+      "label": "Bend",
+      "kind": "router",
+      "lat": 44.0582,
+      "lon": -121.3153,
+      "place": "Bend, OR"
+    },
+    {
+      "id": "portland",
+      "label": "Portland",
+      "kind": "router",
+      "lat": 45.5152,
+      "lon": -122.6784,
+      "place": "Portland, OR"
+    },
+    {
+      "id": "oregon-dc",
+      "label": "US-West Data Center",
+      "kind": "server",
+      "lat": 45.8399,
+      "lon": -119.7006,
+      "place": "Boardman, OR"
+    }
+  ],
+  "links": [
+    {
+      "id": "csulb--lb-isp",
+      "source": "csulb",
+      "target": "lb-isp",
+      "distanceKm": 7.5
+    },
+    {
+      "id": "csulb--el-segundo",
+      "source": "csulb",
+      "target": "el-segundo",
+      "distanceKm": 31.7
+    },
+    {
+      "id": "lb-isp--la-wilshire",
+      "source": "lb-isp",
+      "target": "la-wilshire",
+      "distanceKm": 31.5
+    },
+    {
+      "id": "lb-isp--riverside",
+      "source": "lb-isp",
+      "target": "riverside",
+      "distanceKm": 79.1
+    },
+    {
+      "id": "la-wilshire--bakersfield",
+      "source": "la-wilshire",
+      "target": "bakersfield",
+      "distanceKm": 163
+    },
+    {
+      "id": "riverside--bakersfield",
+      "source": "riverside",
+      "target": "bakersfield",
+      "distanceKm": 215.8
+    },
+    {
+      "id": "el-segundo--slo",
+      "source": "el-segundo",
+      "target": "slo",
+      "distanceKm": 255.2
+    },
+    {
+      "id": "bakersfield--fresno",
+      "source": "bakersfield",
+      "target": "fresno",
+      "distanceKm": 166.7
+    },
+    {
+      "id": "slo--san-jose",
+      "source": "slo",
+      "target": "san-jose",
+      "distanceKm": 253.6
+    },
+    {
+      "id": "fresno--sacramento",
+      "source": "fresno",
+      "target": "sacramento",
+      "distanceKm": 254.2
+    },
+    {
+      "id": "san-jose--oakland",
+      "source": "san-jose",
+      "target": "oakland",
+      "distanceKm": 62
+    },
+    {
+      "id": "oakland--sacramento",
+      "source": "oakland",
+      "target": "sacramento",
+      "distanceKm": 109.9
+    },
+    {
+      "id": "oakland--redding",
+      "source": "oakland",
+      "target": "redding",
+      "distanceKm": 309.5
+    },
+    {
+      "id": "sacramento--redding",
+      "source": "sacramento",
+      "target": "redding",
+      "distanceKm": 235.8
+    },
+    {
+      "id": "sacramento--reno",
+      "source": "sacramento",
+      "target": "reno",
+      "distanceKm": 179.4
+    },
+    {
+      "id": "reno--klamath-falls",
+      "source": "reno",
+      "target": "klamath-falls",
+      "distanceKm": 342.3
+    },
+    {
+      "id": "redding--medford",
+      "source": "redding",
+      "target": "medford",
+      "distanceKm": 197.6
+    },
+    {
+      "id": "medford--klamath-falls",
+      "source": "medford",
+      "target": "klamath-falls",
+      "distanceKm": 90.7
+    },
+    {
+      "id": "medford--eugene",
+      "source": "medford",
+      "target": "eugene",
+      "distanceKm": 192.6
+    },
+    {
+      "id": "klamath-falls--bend",
+      "source": "klamath-falls",
+      "target": "bend",
+      "distanceKm": 207.3
+    },
+    {
+      "id": "eugene--bend",
+      "source": "eugene",
+      "target": "bend",
+      "distanceKm": 141.6
+    },
+    {
+      "id": "eugene--portland",
+      "source": "eugene",
+      "target": "portland",
+      "distanceKm": 165.9
+    },
+    {
+      "id": "bend--oregon-dc",
+      "source": "bend",
+      "target": "oregon-dc",
+      "distanceKm": 235.4
+    },
+    {
+      "id": "portland--oregon-dc",
+      "source": "portland",
+      "target": "oregon-dc",
+      "distanceKm": 234.1
+    }
+  ],
+  "clientId": "csulb",
+  "serverId": "oregon-dc"
+}

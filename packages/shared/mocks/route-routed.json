@@ -1,0 +1,142 @@
+{
+  "status": "routed",
+  "visitOrder": [
+    {
+      "nodeId": "csulb",
+      "parentId": null,
+      "viaLinkId": null,
+      "depth": 0
+    },
+    {
+      "nodeId": "el-segundo",
+      "parentId": "csulb",
+      "viaLinkId": "csulb--el-segundo",
+      "depth": 1
+    },
+    {
+      "nodeId": "lb-isp",
+      "parentId": "csulb",
+      "viaLinkId": "csulb--lb-isp",
+      "depth": 1
+    },
+    {
+      "nodeId": "slo",
+      "parentId": "el-segundo",
+      "viaLinkId": "el-segundo--slo",
+      "depth": 2
+    },
+    {
+      "nodeId": "la-wilshire",
+      "parentId": "lb-isp",
+      "viaLinkId": "lb-isp--la-wilshire",
+      "depth": 2
+    },
+    {
+      "nodeId": "riverside",
+      "parentId": "lb-isp",
+      "viaLinkId": "lb-isp--riverside",
+      "depth": 2
+    },
+    {
+      "nodeId": "san-jose",
+      "parentId": "slo",
+      "viaLinkId": "slo--san-jose",
+      "depth": 3
+    },
+    {
+      "nodeId": "bakersfield",
+      "parentId": "la-wilshire",
+      "viaLinkId": "la-wilshire--bakersfield",
+      "depth": 3
+    },
+    {
+      "nodeId": "oakland",
+      "parentId": "san-jose",
+      "viaLinkId": "san-jose--oakland",
+      "depth": 4
+    },
+    {
+      "nodeId": "fresno",
+      "parentId": "bakersfield",
+      "viaLinkId": "bakersfield--fresno",
+      "depth": 4
+    },
+    {
+      "nodeId": "redding",
+      "parentId": "oakland",
+      "viaLinkId": "oakland--redding",
+      "depth": 5
+    },
+    {
+      "nodeId": "sacramento",
+      "parentId": "oakland",
+      "viaLinkId": "oakland--sacramento",
+      "depth": 5
+    },
+    {
+      "nodeId": "medford",
+      "parentId": "redding",
+      "viaLinkId": "redding--medford",
+      "depth": 6
+    },
+    {
+      "nodeId": "reno",
+      "parentId": "sacramento",
+      "viaLinkId": "sacramento--reno",
+      "depth": 6
+    },
+    {
+      "nodeId": "eugene",
+      "parentId": "medford",
+      "viaLinkId": "medford--eugene",
+      "depth": 7
+    },
+    {
+      "nodeId": "klamath-falls",
+      "parentId": "medford",
+      "viaLinkId": "medford--klamath-falls",
+      "depth": 7
+    },
+    {
+      "nodeId": "bend",
+      "parentId": "eugene",
+      "viaLinkId": "eugene--bend",
+      "depth": 8
+    },
+    {
+      "nodeId": "portland",
+      "parentId": "eugene",
+      "viaLinkId": "eugene--portland",
+      "depth": 8
+    },
+    {
+      "nodeId": "oregon-dc",
+      "parentId": "bend",
+      "viaLinkId": "bend--oregon-dc",
+      "depth": 9
+    }
+  ],
+  "path": [
+    "csulb",
+    "el-segundo",
+    "slo",
+    "san-jose",
+    "oakland",
+    "redding",
+    "medford",
+    "eugene",
+    "bend",
+    "oregon-dc"
+  ],
+  "linkPath": [
+    "csulb--el-segundo",
+    "el-segundo--slo",
+    "slo--san-jose",
+    "san-jose--oakland",
+    "oakland--redding",
+    "redding--medford",
+    "medford--eugene",
+    "eugene--bend",
+    "bend--oregon-dc"
+  ]
+}
