@@ -33,7 +33,7 @@ Flow: **Submit** a file → server splits it into packets → cars appear in the
 │        │  state: phase, cars, failures, route, playback               │
 │        ▼                                                              │
 │       timeline.ts (pure) ──► scene3d/ (React Three Fiber)             │
-│                         └──► view2d/  (SVG fallback)                  │
+│                                                                       │
 └──────────────────────────────────┬────────────────────────────────────┘
                                    │ JSON over HTTPS
 ┌──────────────────────────────────▼────────────────────────────────────┐
@@ -61,7 +61,6 @@ apps/
     sim/        useSimulation reducer, timeline.ts (pure)
     scene3d/    Scene, Ground, ParkingLot, Station, Road, Cars, CameraRig, Labels,
                 world.ts (pure layout), westcoast.json
-    view2d/     SVG graph, cars as dots, keyboard toggles
     ui/         FilePanel, SendBar, BfsPanel, NetworkStatus, StatusBanner, ViewToggle, Legend
 packages/shared/src/
   schemas.ts, limits.ts, projection.ts, geo.ts (haversine, shared with web for #31)
@@ -86,15 +85,19 @@ packet plan (from Submit), the failure sets, and playback state.
 - **Send** (`/route`) runs BFS against the failure set _at send time_. Submit once, break things,
   send, and the route reflects the current network.
 
-### 3. Files are simulated by default; real upload is opt-in
+### 3. Car count scales with file size; real files go to `POST /api/upload`
 
-By default only `fileName` and `sizeBytes` leave the browser. Real packets are ~1,500 bytes, so
-1 MB ≈ 700 packets; cars are capped at 24 and each carries a range of packets.
+Files are capped at **10,000,000 bytes (10 MB)**. Packets are 1,500 bytes; the number of cars is
+`ceil(size / (10 MB / 24))` clamped to 1–24, about one car per 416.7 KB. A file at the limit
+fills all 24 cars, a 5 MB file 12, a 1 MiB file 3, anything under ~417 KB one. `toCarPlan()` in
+`packages/shared` is the single implementation, used by the server and the browser.
 
-If the user ticks the (default-off) checkbox, Send also streams the bytes (≤ 10 MB) to
-`POST /api/upload`. The server feeds them to an incremental SHA-256 and a byte counter, then
-discards them: no disk, no database, no logging of contents or file name. The browser compares the
-returned hash with its own. The upload never blocks or fails the simulation. Real bytes take
+Dropping (or browsing for) a file in the upload zone streams its bytes to `POST /api/upload`. The
+zone says so before anything is sent: "sent to our Oregon server, hashed, then deleted (never
+stored)". The server feeds the bytes to an incremental SHA-256 and a byte counter, then discards
+them: no disk, no database, no logging of contents or file name. It replies with the measured
+size and the car plan; the browser compares the hash with its own (`crypto.subtle`). Presets and
+messages are simulated locally with the same plan and never leave the browser. Real bytes take
 whatever internet path ISPs choose; the cars show an illustrative BFS route.
 
 ### 4. BFS on a geographic map
@@ -110,8 +113,8 @@ policy). We keep BFS and design the topology so fewest-hop routes look sensible 
 ### 5. Shared contract via TypeBox
 
 `packages/shared` defines every request/response once. Fastify validates and serializes with the
-JSON Schema; both apps import the derived TS types. `project(lat, lon)` also lives here so 2D
-and 3D place nodes identically.
+JSON Schema; both apps import the derived TS types. `project(lat, lon)` also lives here so the
+scene and the timeline place nodes identically.
 
 ### 6. Algorithms isolated from HTTP
 
@@ -125,11 +128,10 @@ same BFS route and same cars, every presentation. The one exception is playback:
 a random route among the equally short ones (see Playback), so which road a car drives varies
 between sends.
 
-### 8. One timeline, two renderers
+### 8. One pure timeline
 
 `sim/timeline.ts` turns `(visitOrder, linkPath, cars, speed)` into timed events. Both
-`scene3d/` and `view2d/` render from it, so the views can never disagree, and timing is
-unit-testable without WebGL.
+`scene3d/` renders from it, and timing is unit-testable without WebGL.
 
 ### 9. 3D rendering rules
 
@@ -143,10 +145,12 @@ unit-testable without WebGL.
 - 3D keeps true geography (no 68° rotation, no Los Angeles spread); the camera does the framing.
   Lots extend inland (east) of their gate so they never sit in the ocean.
 
-### 10. 2D fallback
+### 10. 3D only
 
-SVG view stays. It is the default when WebGL is unavailable or `prefers-reduced-motion` is set,
-the keyboard/screen-reader path for toggling failures, and the Playwright E2E target.
+The 2D SVG view was removed: the 3D scene is the only map. Without WebGL (or if the scene
+crashes) the map area explains why, and the sidebar still works: upload, Submit, Send, and the
+Network Status toggles (the keyboard and screen-reader path for failures). Playwright covers the
+3D view (`apps/web/e2e/`).
 
 ## Network topology (fixed)
 
@@ -217,12 +221,13 @@ on server locale.
 
 ### Packetization examples
 
-| Input    | Packets | Cars | Notes                              |
-| -------- | ------- | ---- | ---------------------------------- |
-| 1 B      | 1       | 1    |                                    |
-| 36,000 B | 24      | 24   | one packet per car                 |
-| 1 MiB    | 700     | 24   | cars 0–3 carry 30 packets, rest 29 |
-| 1 GiB    | 715,828 | 24   | max declared size                  |
+| Input               | Packets | Cars | Notes                       |
+| ------------------- | ------- | ---- | --------------------------- |
+| 1 B                 | 1       | 1    |                             |
+| 12,000 B            | 8       | 1    | under one car's 416.7 KB    |
+| 1 MiB (1,048,576 B) | 700     | 3    | 234, 233, 233 packets       |
+| 5,000,000 B         | 3,334   | 12   |                             |
+| 10,000,000 B        | 6,667   | 24   | the limit fills all 24 cars |
 
 ### Map projection
 
@@ -243,10 +248,10 @@ packetizing | routing ──API error──► error (keeps cars, Retry)
 Failure toggles are enabled only in `idle`, `loaded`, `delivered`, `noRoute`. Mid-drive
 rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
 
-## Playback (2D)
+## Playback
 
-`sim/timeline.ts` is pure: it turns cars and routes into positions at a simulation time `t`. The 2D
-view (`view2d/`) draws those positions; a 3D scene can read the same frames.
+`sim/timeline.ts` is pure: it turns cars and routes into departure and arrival times at a
+simulation time `t`, using distances from the shared projection.
 
 - **One clock.** `useSimulation` advances `t` by real elapsed time times the playback speed
   (0.25×, 0.5×, 1×, 2×). Speed changes mid-flight are smooth and Pause stops the clock. Slowing
@@ -254,15 +259,13 @@ view (`view2d/`) draws those positions; a 3D scene can read the same frames.
 - **Phases.** `/route` returns, then `t` first replays the BFS visit order (searching), then cars
   leave the CSULB lot one after another (driving) and park in the destination lot (delivered).
   An unreachable result ends after the search replay (noRoute).
-- **Packetize is client-side for now.** `sim/packetize.ts` implements the table above until
-  `POST /api/packetize` exists. It returns the `PacketizeResponse` shape, so only the caller
-  changes later. The `packetizing` state is instantaneous and never shown.
+- **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
+  `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
+  `packetizing` state is instantaneous and never shown.
 - **Each car picks its own route at random** among all routes with the same hop count as the BFS
   result (the server answer stays deterministic; the web client breaks ties randomly per car,
   with an injectable `rng` for tests). Every route a car takes is a valid fewest-hop route, but
   it may differ from the highlighted BFS path.
-- **Map layout.** `view2d/layout.ts` applies the shared projection, spreads the dense Long Beach
-  stations, and rotates the map 68° clockwise (the same schematic liberties as the 3D design).
 
 ## Playback (3D)
 
@@ -274,10 +277,10 @@ view (`view2d/`) draws those positions; a 3D scene can read the same frames.
   `project()`, bows each road into a slight quadratic arch, lays out 24-slot lots, and builds
   each car's path: slot → aisle → CSULB gate → its route's road curves (reversed when a road is
   driven target → source) → Oregon gate → slot. A car's progress is
-  `(t − departAt) / (arriveAt − departAt)` from the shared timeline, so 2D and 3D cars leave and
-  arrive together even though path lengths differ.
-- **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the 2D view
-  and BFS panel use. Labels show "BFS depth N" while searching.
+  `(t − departAt) / (arriveAt − departAt)` from the shared timeline, so the sidebar counts and
+  the cars always agree.
+- **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the BFS
+  panel uses. Labels show "BFS depth N" while searching.
 - **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, beacon): five draw
   calls for 24 cars. Beacons above each car scale with camera distance so cars stay visible in
   the overview.
@@ -286,8 +289,8 @@ view (`view2d/`) draws those positions; a 3D scene can read the same frames.
 - **Camera.** `CameraRig` modes: Auto (lot after Submit, overview while searching, chase the
   lead car while driving, Oregon lot when delivered), Overview, Follow lead car. Any drag or
   scroll switches to Free. The sun's shadow box follows the orbit target.
-- **Fallback.** 3D is the default unless WebGL is missing or `prefers-reduced-motion` is set.
-  three.js loads lazily; an error boundary drops to 2D with a message if the scene fails.
+- **Fallback.** three.js loads lazily. Without WebGL, or if the scene throws (error boundary),
+  the map area shows an explanation and the sidebar keeps working.
 
 ## API contract
 
@@ -346,26 +349,37 @@ Outside the base path: `GET /` returns `{ "message": "Welcome to Network Simulat
 `fromNodeId` optional (defaults to client). `status: "unreachable"` is a `200` with empty
 `path`/`linkPath` and the full `visitOrder`.
 
-### `POST /api/upload` — opt-in real upload
+### `POST /api/upload` — upload a file (≤ 10 MB)
 
 Request: `Content-Type: application/octet-stream`, raw bytes streamed (never buffered); optional
-`X-File-Name` header (display only, never logged or stored).
+URI-encoded `X-File-Name` header (display only, never logged or stored).
 
 ```json
 {
+  "fileName": "essay.pdf",
   "bytesReceived": 1048576,
+  "size": "1.05 MB",
+  "limitBytes": 10000000,
+  "underLimit": true,
   "sha256": "<64 hex chars>",
   "receivedAt": "2026-10-20T12:00:00.000Z",
-  "region": "oregon"
+  "region": "oregon",
+  "packetSizeBytes": 1500,
+  "packetCount": 700,
+  "carCount": 3,
+  "cars": [{ "id": "car-0", "seq": 0, "firstPacket": 0, "lastPacket": 233, "bytes": 351000 }],
+  "summary": "essay.pdf is 1.05 MB (under the 10 MB limit): 700 packets in 3 cars."
 }
 ```
 
-Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
+Bytes are hashed and discarded. `cars` follows the size-based plan (decision 3); 413
+`PAYLOAD_TOO_LARGE` over 10,000,000 bytes (counted while streaming, not only `Content-Length`),
+400 when empty, 429 after ~10 uploads per minute per IP.
 
 ### Errors
 
 ```json
-{ "error": { "code": "VALIDATION_ERROR", "message": "body/sizeBytes must be <= 1073741824" } }
+{ "error": { "code": "VALIDATION_ERROR", "message": "body/sizeBytes must be <= 10000000" } }
 ```
 
 | Status | Code                | When                                          |
@@ -384,7 +398,7 @@ Bytes are hashed and discarded. Not used by `/packetize` or `/route`.
 | --------------------- | ------------ |
 | Message               | 1–140 chars  |
 | File name             | 1–255 chars  |
-| File size (declared)  | 1 B – 1 GiB  |
+| File size             | 1 B – 10 MB  |
 | Packet size           | 1,500 B      |
 | Max cars per transfer | 24           |
 | Disabled IDs per list | 64           |
@@ -422,8 +436,7 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | Algorithms | Vitest                   | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
 | API        | Vitest + `inject()`      | Endpoints, validation, error codes                                    |
 | Sim        | Vitest                   | Reducer transitions, locked toggles, timeline ordering                |
-| UI         | Vitest + Testing Library | Panels, 2D keyboard toggles                                           |
-| E2E        | Playwright (2D view)     | Submit → Send → delivered; break → reroute; cut all → no route; reset |
+| E2E        | Playwright (3D)          | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
 | 3D         | Manual checklist + smoke | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 
 ## Implementation status
@@ -433,10 +446,11 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 | Monorepo, CI, Render blueprint         | Done                                              |
 | Shared contract, error handling        | Done (v2; freeze pending #4)                      |
 | BFS + tests                            | Done on West Coast topology; demo routes asserted |
-| 2D SVG view, send/reset, toggles       | Done; matches the Figma 2D frames (see Playback)  |
-| West Coast topology, lat/lon, distance | Done                                              |
+| 2D SVG view                            | Removed; 3D is the only map                       |
+| West Coast topology, lat/lon, distance | Done; east desert corridor added (27 / 35)        |
+| `POST /api/upload` + drag-and-drop UI  | Done (size-based car plan)                        |
 | `/packetize`, `fromNodeId`             | To do (web packetizes client-side meanwhile)      |
-| `sim/` hook + timeline                 | Done for 2D (`useSimulation`, `timeline.ts`)      |
+| `sim/` hook + timeline                 | Done (`useSimulation`, `timeline.ts`)             |
 | 3D scene, cars, camera                 | Done (primitives); Kenney models pending (#22)    |
 | Component + E2E tests                  | To do                                             |
 
