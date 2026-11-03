@@ -1,65 +1,27 @@
-import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Network } from '@netsim/shared';
-import { findRoute, type FailureState } from './bfs.js';
+import { findRoute } from './bfs.js';
 import { createDefaultNetwork } from './topology.js';
+import {
+  DOCUMENTED_ROUTES as documented,
+  SCENARIOS,
+  expectDocumented as expectDocumentedResult,
+  type Expected,
+  type Scenario,
+} from '../test/demo-routes.js';
 
 const net = createDefaultNetwork();
 
-interface Scenario {
-  from?: string;
-  nodes?: string[];
-  links?: string[];
-}
-
-/** Keyed by the "Failures" column of the demo-routes table in `docs/architecture.md`. */
-const SCENARIOS: Record<string, Scenario> = {
-  none: {},
-  'station `oakland`': { nodes: ['oakland'] },
-  'road `oakland--redding`': { links: ['oakland--redding'] },
-  '`sacramento` + `redding`': { nodes: ['sacramento', 'redding'] },
-  'start at `sacramento`': { from: 'sacramento' },
-};
-
-const failures = ({ nodes = [], links = [] }: Scenario): FailureState => ({
-  disabledNodeIds: new Set(nodes),
-  disabledLinkIds: new Set(links),
-});
 const run = (s: Scenario, network: Network = net) =>
-  findRoute(network, s.from ?? network.clientId, network.serverId, failures(s));
-
-type Expected = { path: string[]; hops?: number } | { unreachable: true; explored: number };
-
-/** Parses the demo-routes table so the doc and these tests can never drift apart. */
-function documentedRoutes(): [string, Expected][] {
-  const doc = readFileSync(new URL('../../../../docs/architecture.md', import.meta.url), 'utf8');
-  const section = /^### Demo routes[\s\S]*?(?=^### )/m.exec(doc)?.[0] ?? '';
-  const rows = [...section.matchAll(/^\| (.+?) +\| (.+?) +\|$/gm)].slice(2); // skip header + rule
-  return rows.map(([, label, route]) => {
-    const explored = /^none — BFS explores (\d+) stations/.exec(route!);
-    if (explored) return [label!, { unreachable: true, explored: Number(explored[1]) }];
-    const hops = /\((\d+) hops\)$/.exec(route!);
-    const path = route!.replace(/\s*\(\d+ hops\)$/, '').split(' → ');
-    return [label!, { path, hops: hops ? Number(hops[1]) : undefined }];
+  findRoute(network, s.from ?? network.clientId, network.serverId, {
+    disabledNodeIds: new Set(s.nodes),
+    disabledLinkIds: new Set(s.links),
   });
-}
 
-const documented = documentedRoutes();
-
-function expectDocumented(s: Scenario, expected: Expected, network: Network = net) {
+const expectDocumented = (s: Scenario, expected: Expected, network: Network = net) => {
   const r = run(s, network);
-  if ('unreachable' in expected) {
-    expect(r.found).toBe(false);
-    expect(r.path).toEqual([]);
-    expect(r.linkPath).toEqual([]);
-    expect(r.visitOrder).toHaveLength(expected.explored);
-  } else {
-    expect(r.found).toBe(true);
-    expect(r.path).toEqual(expected.path);
-    expect(r.linkPath).toHaveLength(r.path.length - 1);
-    if (expected.hops !== undefined) expect(r.path.length - 1).toBe(expected.hops);
-  }
-}
+  expectDocumentedResult({ ...r, routed: r.found }, expected);
+};
 
 describe('demo routes in docs/architecture.md', () => {
   it('documents exactly the five demo scenarios', () => {

@@ -227,6 +227,10 @@ rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
 
 Base path `/api`. JSON bodies. Source of truth: `packages/shared/src/schemas.ts`.
 
+> **Frozen (v2, 2026-11-02).** Build against these shapes. A breaking change needs a PR approved
+> by the contract owner and an announcement in the team channel. Mock responses for every
+> endpoint: [`packages/shared/mocks/`](../packages/shared/mocks/README.md).
+
 Outside the base path: `GET /` returns `{ "message": "Welcome to Network Simulator", "docs": "/docs", "health": "/api/health" }`; `/docs` serves Swagger UI and `/docs/json` the OpenAPI document.
 
 ### `GET /api/health`
@@ -362,17 +366,17 @@ Free API instances sleep when idle; first request can take ~30–60 s. Warm up b
 
 ## Implementation status
 
-| Area                                   | Status                                            |
-| -------------------------------------- | ------------------------------------------------- |
-| Monorepo, CI, Render blueprint         | Done                                              |
-| Shared contract, error handling        | Done (v2; freeze pending #4)                      |
-| BFS + tests                            | Done on West Coast topology; demo routes asserted |
-| 2D SVG view, send/reset, toggles       | Done (foundation)                                 |
-| West Coast topology, lat/lon, distance | Done                                              |
-| `/packetize`, `fromNodeId`             | To do                                             |
-| `sim/` reducer + timeline              | To do                                             |
-| 3D scene, cars, camera                 | To do                                             |
-| Component + E2E tests                  | To do                                             |
+| Area                                   | Status                                                         |
+| -------------------------------------- | -------------------------------------------------------------- |
+| Monorepo, CI, Render blueprint         | Done                                                           |
+| Shared contract, error handling        | Done (v2, frozen 2026-11-02; mocks in `packages/shared/mocks`) |
+| BFS + tests                            | Done on West Coast topology; demo routes asserted              |
+| 2D SVG view, send/reset, toggles       | Done (foundation)                                              |
+| West Coast topology, lat/lon, distance | Done                                                           |
+| `/packetize`, `fromNodeId`             | `fromNodeId` done; `/packetize` in progress (#6, #7)           |
+| `sim/` reducer + timeline              | To do                                                          |
+| 3D scene, cars, camera                 | To do                                                          |
+| Component + E2E tests                  | To do                                                          |
 
 ## Roadmap
 
