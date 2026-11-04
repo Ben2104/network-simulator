@@ -1,0 +1,11 @@
+# Keep LF in every checkout, including Windows (Git for Windows defaults to core.autocrlf=true,
+# which converts to CRLF and makes `npm run check` fail Prettier's format check).
+* text=auto eol=lf
+
+# Binary assets: never touch line endings.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.glb binary
+*.woff2 binary
