@@ -921,3 +921,114 @@ textarea {
 .upload-result .mismatch {
   color: var(--color-danger-text);
 }
+
+/* Loading screen (cold start of the free API host) */
+.loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px 16px;
+  text-align: center;
+  background: var(--color-map-ground);
+}
+.load-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+.load-road {
+  position: relative;
+  width: min(280px, 80vw);
+  height: 14px;
+  border-radius: 7px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+.load-road::after {
+  content: '';
+  position: absolute;
+  inset: 50% 8px auto;
+  border-top: 2px dashed var(--color-border);
+  transform: translateY(-50%);
+}
+.load-car {
+  position: absolute;
+  top: 2px;
+  left: 0;
+  width: 26px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-primary);
+  z-index: 1;
+  animation: load-drive 1.6s ease-in-out infinite;
+}
+@keyframes load-drive {
+  0% {
+    left: -26px;
+  }
+  100% {
+    left: 100%;
+  }
+}
+.load-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+.load-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.load-step.active,
+.load-step.done {
+  color: var(--color-text);
+}
+.load-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  font-size: 10px;
+  color: var(--color-on-primary);
+}
+.load-step.active .load-dot {
+  border-color: var(--color-primary) transparent var(--color-primary) var(--color-primary);
+  animation: load-spin 0.9s linear infinite;
+}
+.load-step.done .load-dot {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+@keyframes load-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.load-note {
+  max-width: 420px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .load-car,
+  .load-step.active .load-dot {
+    animation: none;
+  }
+  .load-car {
+    left: calc(50% - 13px);
+  }
+}
