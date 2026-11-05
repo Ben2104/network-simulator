@@ -454,6 +454,10 @@ No secrets.
 2. `netsim-api` → `CORS_ORIGIN` = static site URL.
 
 Free API instances sleep when idle; first request can take ~30–60 s. Warm up before presenting.
+The web app handles this itself: it downloads the 3D map chunk in parallel with `GET /api/network`,
+shows a loading screen (`ui/LoadingScreen.tsx`) that explains the wake-up after 4 s, and retries
+connection failures and 502/503/504 with backoff for up to 2 minutes (`api/wake.ts`) before showing
+the error banner.
 
 ## Testing
 
