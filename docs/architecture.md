@@ -137,9 +137,16 @@ cars leave at varied gaps and speeds, so traffic differs between sends.
 
 - React Three Fiber + drei. Scene state comes from React; **per-frame motion does not.**
   `<Cars>` uses `useFrame` + refs to update instanced matrices. Never `setState` per frame.
-- Ground: Natural Earth (public domain) CA/OR/WA outlines, simplified with mapshaper, committed
-  as `westcoast.json`, extruded flat. Equirectangular projection; distortion is negligible at
-  this scale.
+- Ground: Natural Earth (public domain) outlines of the West Coast and interior states (CA, OR,
+  WA, NV, ID plus AZ, UT, MT, WY, CO, NM and northern Mexico for context), simplified with
+  mapshaper, committed as `westcoast.json`, extruded flat. The land reaches lon −104 so the east
+  (desert) corridor sits well inside the map. Equirectangular projection; distortion is
+  negligible at this scale.
+- Scenery (`scene3d/scenery.ts`, pure and unit-tested): a biome map paints the land texture
+  (forest, coast, chaparral, Central Valley fields, Mojave, Great Basin, high desert, red rock);
+  hand-placed ranges and volcanoes, lakes, instanced pines, broadleaf trees, shrubs, cacti and
+  rocks per biome, and drifting clouds that fade in the overview. Nothing is placed on a road,
+  station or lot. Decorative only: BFS ignores terrain.
 - Models: procedural primitives (`scene3d/`); Kenney Car/City kits (CC0) to be swapped in behind
   the same components (#22). Sources recorded in `apps/web/ASSETS.md`.
 - 3D keeps true geography (no 68° rotation, no Los Angeles spread); the camera does the framing.
