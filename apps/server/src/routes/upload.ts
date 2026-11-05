@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import {
+  ApiErrorSchema,
   LIMITS,
   UploadResponseSchema,
   formatSize,
@@ -22,6 +23,39 @@ const tooLarge = () =>
     'PAYLOAD_TOO_LARGE',
     `File is over the ${formatSize(LIMITS.uploadMaxBytes)} limit (${LIMITS.uploadMaxBytes.toLocaleString('en-US')} bytes).`,
   );
+
+const errorDoc = (description: string) => ({ description, ...ApiErrorSchema });
+
+/**
+ * OpenAPI-only additions for `/upload`. The handler reads the raw stream itself, so these are not
+ * part of the validated route schema (Fastify would try to validate the stream as a body). Swagger
+ * UI turns the binary body into a file picker, so "Try it out" uploads a file and shows the exact
+ * JSON the web app receives.
+ */
+const uploadDocs = {
+  consumes: ['application/octet-stream'],
+  body: {
+    type: 'string',
+    format: 'binary',
+    description: `The file's raw bytes (1 B to ${LIMITS.uploadMaxBytes.toLocaleString('en-US')} B). Pick a file in Swagger UI.`,
+  },
+  headers: {
+    type: 'object',
+    properties: {
+      'x-file-name': {
+        type: 'string',
+        maxLength: LIMITS.fileNameMaxLength,
+        description:
+          'Optional display name, URI-encoded (e.g. `my%20essay.pdf`). Echoed back as `fileName`; never stored or logged.',
+      },
+    },
+  },
+  response: {
+    400: errorDoc('Empty body (VALIDATION_ERROR)'),
+    413: errorDoc('Over the 10 MB limit (PAYLOAD_TOO_LARGE)'),
+    429: errorDoc('More than ~10 uploads per minute from this IP (RATE_LIMITED)'),
+  },
+} as const;
 
 /** `X-File-Name` is URI-encoded by the client (headers are ASCII). Display only. */
 function fileNameFrom(header: string | string[] | undefined): string | null {
@@ -58,7 +92,17 @@ export const uploadRoutes: FastifyPluginAsync<UploadRoutesOptions> = async (app,
     '/upload',
     {
       bodyLimit: LIMITS.uploadMaxBytes,
-      config: { rateLimit: { max: opts.perMinute ?? 10, timeWindow: '1 minute' } },
+      config: {
+        rateLimit: { max: opts.perMinute ?? 10, timeWindow: '1 minute' },
+        swaggerTransform: ({ schema, url }) => ({
+          url,
+          schema: {
+            ...schema,
+            ...uploadDocs,
+            response: { ...(schema.response as object), ...uploadDocs.response },
+          },
+        }),
+      },
       schema: {
         tags: ['upload'],
         summary: 'Upload a file (≤ 10 MB, octet-stream): hashed, discarded, split into cars',

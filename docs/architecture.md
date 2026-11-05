@@ -125,8 +125,8 @@ call, and shape. All algorithm tests run without HTTP.
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
 same BFS route and same cars, every presentation. The one exception is playback: each car picks
-a random route among the equally short ones (see Playback), so which road a car drives varies
-between sends.
+a random route among the BFS-length routes and those up to two hops longer (see Playback), and
+cars leave at varied gaps and speeds, so traffic differs between sends.
 
 ### 8. One pure timeline
 
@@ -137,9 +137,16 @@ between sends.
 
 - React Three Fiber + drei. Scene state comes from React; **per-frame motion does not.**
   `<Cars>` uses `useFrame` + refs to update instanced matrices. Never `setState` per frame.
-- Ground: Natural Earth (public domain) CA/OR/WA outlines, simplified with mapshaper, committed
-  as `westcoast.json`, extruded flat. Equirectangular projection; distortion is negligible at
-  this scale.
+- Ground: Natural Earth (public domain) outlines of the West Coast and interior states (CA, OR,
+  WA, NV, ID plus AZ, UT, MT, WY, CO, NM and northern Mexico for context), simplified with
+  mapshaper, committed as `westcoast.json`, extruded flat. The land reaches lon −104 so the east
+  (desert) corridor sits well inside the map. Equirectangular projection; distortion is
+  negligible at this scale.
+- Scenery (`scene3d/scenery.ts`, pure and unit-tested): a biome map paints the land texture
+  (forest, coast, chaparral, Central Valley fields, Mojave, Great Basin, high desert, red rock);
+  hand-placed ranges and volcanoes, lakes, instanced pines, broadleaf trees, shrubs, cacti and
+  rocks per biome, and drifting clouds that fade in the overview. Nothing is placed on a road,
+  station or lot. Decorative only: BFS ignores terrain.
 - Models: procedural primitives (`scene3d/`); Kenney Car/City kits (CC0) to be swapped in behind
   the same components (#22). Sources recorded in `apps/web/ASSETS.md`.
 - 3D keeps true geography (no 68° rotation, no Los Angeles spread); the camera does the framing.
@@ -202,8 +209,9 @@ Medford → Eugene) and **inland** (LB ISP → LA/Riverside → Bakersfield → 
 Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon. A third, longer
 **east** (desert) corridor follows the I-15, US-95, I-84 and US-20 long-haul routes: Riverside →
 Barstow → Las Vegas → Tonopah → Winnemucca → Boise → Ontario → Pendleton, with cross-links
-Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops it never beats the 9-hop default; it carries
-traffic only when both western corridors are cut.
+Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops BFS never picks it over the 9-hop default (it
+is the BFS route only when both western corridors are cut), but in playback roughly one car in
+five drives it anyway (see Playback).
 
 ### Demo routes (asserted in tests)
 
@@ -262,10 +270,15 @@ simulation time `t`, using distances from the shared projection.
 - **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
   `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
   `packetizing` state is instantaneous and never shown.
-- **Each car picks its own route at random** among all routes with the same hop count as the BFS
-  result (the server answer stays deterministic; the web client breaks ties randomly per car,
-  with an injectable `rng` for tests). Every route a car takes is a valid fewest-hop route, but
-  it may differ from the highlighted BFS path.
+- **Each car picks its own route at random** (`sim/routes.ts`, `sim/plan.ts`) among every
+  working route with at most BFS hops + `ROUTE_SLACK` (2). Weights favour fewer hops (×0.55 per
+  extra hop) and roads few other routes share, so the lone desert corridor gets about a fifth of
+  the cars instead of none. The server answer stays deterministic and stays highlighted; cars
+  spread out like traffic and never use a broken station or road. `rng` is injectable for tests.
+- **Natural traffic.** Departure gaps vary (0.55–1.45 × `CAR_STAGGER_SEC`) and each car cruises
+  at its own speed (±12 %). Speeds are handed out fastest first, so no car drives through a
+  slower one on the shared road out of the CSULB lot. Without an `rng` the timeline is fully
+  deterministic.
 
 ## Playback (3D)
 
@@ -279,6 +292,11 @@ simulation time `t`, using distances from the shared projection.
   driven target → source) → Oregon gate → slot. A car's progress is
   `(t − departAt) / (arriveAt − departAt)` from the shared timeline, so the sidebar counts and
   the cars always agree.
+- **Natural turns.** Every corner of a car's path (slot exits, lot gates, stations) is rounded
+  with a fillet of up to `TURN_RADIUS`. A speed profile from the path's curvature makes cars
+  brake into turns and accelerate out (rate-limited), while still leaving and arriving at the
+  timeline's times. Heading points rear axle → front axle; the body leans out of turns and
+  pitches with acceleration (wheels stay flat).
 - **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the BFS
   panel uses. Labels show "BFS depth N" while searching.
 - **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, beacon): five draw
@@ -375,6 +393,10 @@ URI-encoded `X-File-Name` header (display only, never logged or stored).
   "summary": "essay.pdf is 1.05 MB (under the 10 MB limit): 700 packets in 3 cars."
 }
 ```
+
+In Swagger UI (`/docs`) the body is a file picker: **Try it out → choose a file → Execute** shows
+exactly the JSON the web app receives. The binary body, `X-File-Name` header and 400/413/429
+error shapes are documentation only (the handler reads the raw stream itself).
 
 Bytes are hashed and discarded. `cars` follows the size-based plan (decision 3); 413
 `PAYLOAD_TOO_LARGE` over 10,000,000 bytes (counted while streaming, not only `Content-Length`),

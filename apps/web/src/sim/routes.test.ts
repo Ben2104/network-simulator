@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Network } from '@netsim/shared';
-import { assignRoutes, enumerateRoutes } from './routes';
+import { assignRoutes, enumerateRoutes, routeWeights } from './routes';
 
 const node = (id: string, kind: 'client' | 'router' | 'server' = 'router') => ({
   id,
@@ -57,6 +57,10 @@ describe('enumerateRoutes', () => {
     expect(noBS).toEqual(['c>a>s', 'c>b>a>s']);
   });
 
+  it('never truncates: every route within the hop bound is found', () => {
+    expect(enumerateRoutes(network, none, none, 4)).toHaveLength(4);
+  });
+
   it('returns nothing when the server is unreachable', () => {
     expect(enumerateRoutes(network, new Set(['a', 'b']), none, 5)).toEqual([]);
   });
@@ -72,7 +76,47 @@ describe('assignRoutes', () => {
     expect(picked.map((r) => r.nodeIds[1])).toEqual(['a', 'b', 'b', 'a']);
   });
 
+  it('picks in proportion to weights', () => {
+    // Weights 1 and 3: rng < 0.25 → first route, otherwise the second.
+    const picked = assignRoutes(
+      routes,
+      3,
+      (() => {
+        const seq = [0.1, 0.3, 0.99];
+        let i = 0;
+        return () => seq[i++]!;
+      })(),
+      [1, 3],
+    );
+    expect(picked.map((r) => r.nodeIds[1])).toEqual(['a', 'b', 'b']);
+  });
+
   it('assigns nothing when there are no routes', () => {
     expect(assignRoutes([], 3, Math.random)).toEqual([]);
+  });
+});
+
+describe('routeWeights', () => {
+  it('prefers fewer hops', () => {
+    const routes = enumerateRoutes(network, none, none, 3);
+    const w = routeWeights(routes);
+    // c>a>s and c>b>s (2 hops) outweigh c>a>b>s and c>b>a>s (3 hops).
+    expect(Math.min(w[0]!, w[1]!)).toBeGreaterThan(Math.max(w[2]!, w[3]!));
+  });
+
+  it('boosts routes over roads that few other routes share', () => {
+    // Three routes share x--s; only one uses the lonely y--s road.
+    const r = (...ids: string[]) => ({ nodeIds: [], linkIds: ids });
+    const w = routeWeights([
+      r('c--x', 'x--s'),
+      r('c--x2', 'x--s'),
+      r('c--x3', 'x--s'),
+      r('c--y', 'y--s'),
+    ]);
+    expect(w[3]).toBeGreaterThan(w[0]!);
+  });
+
+  it('is empty for no routes', () => {
+    expect(routeWeights([])).toEqual([]);
   });
 });

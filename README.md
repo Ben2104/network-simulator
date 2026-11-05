@@ -85,7 +85,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
-- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random equally short route.
+- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random route (BFS length or up to two hops longer, so some take the desert corridor) and cars leave at varied gaps and speeds.
 - **3D.** React Three Fiber scene driven by one pure timeline; without WebGL the map explains why
   and the sidebar still works.
 
@@ -105,6 +105,8 @@ Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RA
 
 - `GET /` returns a welcome message with links to `/docs` and `/api/health`.
 - `/docs` is a Swagger UI generated from the route schemas; the raw OpenAPI document is at `/docs/json`.
+- To see what the web app gets for a real file, open `/docs` → `POST /api/upload` → **Try it out**,
+  pick a file and **Execute**. The response is the same JSON the upload zone receives.
 - Logs are pretty-printed by default, one line per request. Set `LOG_FORMAT=json` for raw JSON
   lines; `LOG_LEVEL` still applies.
 

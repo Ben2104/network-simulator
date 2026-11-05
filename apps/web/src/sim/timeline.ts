@@ -13,12 +13,16 @@ export const BFS_STEP_SEC = 0.3;
 export const CAR_STAGGER_SEC = 0.45;
 /** Map units a car covers per sim second. Playback speed scales the clock, not this. */
 export const CAR_SPEED = 80;
+/** With traffic randomness on, each car's cruising speed is within ±this fraction of CAR_SPEED. */
+export const CAR_SPEED_SPREAD = 0.12;
 
 export interface CarPlan {
   carId: string;
   seq: number;
   bytes: number;
   route: Route;
+  /** This car's cruising speed in map units per sim second. */
+  speed: number;
   points: Point[];
   /** Distance from the start at each point. */
   cum: number[];
@@ -43,17 +47,30 @@ export interface CarFrame {
   angle: number;
 }
 
+/**
+ * Timed plan for every car. Without `rng` cars leave every `CAR_STAGGER_SEC` at `CAR_SPEED`
+ * (fully deterministic, used by tests). With `rng` traffic looks natural: gaps between departures
+ * vary (0.55–1.45× the stagger) and each car cruises at its own speed (±`CAR_SPEED_SPREAD`).
+ * Speeds are handed out fastest first, so a quicker car never drives through a slower one on
+ * the shared road out of the CSULB lot.
+ */
 export function buildTimeline(
   cars: readonly Car[],
   routes: readonly Route[],
   pos: ReadonlyMap<string, Point>,
   bfsSteps: number,
+  rng?: () => number,
 ): Timeline {
   const driveStart = bfsSteps * BFS_STEP_SEC;
+  const speeds = cars
+    .map(() => (rng ? CAR_SPEED * (1 + (rng() * 2 - 1) * CAR_SPEED_SPREAD) : CAR_SPEED))
+    .sort((a, b) => b - a);
+  let departAt = driveStart;
   // No routes (unreachable) means no car ever leaves, so there are no plans.
   const plans = cars.flatMap((car, i): CarPlan[] => {
     const route = routes[i];
     if (!route) return [];
+    if (i > 0) departAt += CAR_STAGGER_SEC * (rng ? 0.55 + rng() * 0.9 : 1);
     const points = route.nodeIds.map((id) => pos.get(id)!);
     const cum = [0];
     for (let k = 1; k < points.length; k++) {
@@ -61,17 +78,18 @@ export function buildTimeline(
         cum[k - 1]! + Math.hypot(points[k]!.x - points[k - 1]!.x, points[k]!.y - points[k - 1]!.y),
       );
     }
-    const departAt = driveStart + i * CAR_STAGGER_SEC;
+    const speed = speeds[i]!;
     return [
       {
         carId: car.id,
         seq: car.seq,
         bytes: car.bytes,
         route,
+        speed,
         points,
         cum,
         departAt,
-        arriveAt: departAt + cum[cum.length - 1]! / CAR_SPEED,
+        arriveAt: departAt + cum[cum.length - 1]! / speed,
       },
     ];
   });
@@ -80,7 +98,7 @@ export function buildTimeline(
 
 export function carFrame(plan: CarPlan, t: number): CarFrame {
   const total = plan.cum[plan.cum.length - 1]!;
-  const dist = Math.min(Math.max((t - plan.departAt) * CAR_SPEED, 0), total);
+  const dist = Math.min(Math.max((t - plan.departAt) * plan.speed, 0), total);
   let k = 1;
   while (k < plan.cum.length - 1 && plan.cum[k]! < dist) k++;
   const a = plan.points[k - 1]!;
