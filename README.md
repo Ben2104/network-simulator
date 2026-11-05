@@ -105,6 +105,8 @@ Errors: `{ "error": { "code", "message" } }` (incl. `PAYLOAD_TOO_LARGE` 413, `RA
 
 - `GET /` returns a welcome message with links to `/docs` and `/api/health`.
 - `/docs` is a Swagger UI generated from the route schemas; the raw OpenAPI document is at `/docs/json`.
+- To see what the web app gets for a real file, open `/docs` → `POST /api/upload` → **Try it out**,
+  pick a file and **Execute**. The response is the same JSON the upload zone receives.
 - Logs are pretty-printed by default, one line per request. Set `LOG_FORMAT=json` for raw JSON
   lines; `LOG_LEVEL` still applies.
 

@@ -376,6 +376,10 @@ URI-encoded `X-File-Name` header (display only, never logged or stored).
 }
 ```
 
+In Swagger UI (`/docs`) the body is a file picker: **Try it out → choose a file → Execute** shows
+exactly the JSON the web app receives. The binary body, `X-File-Name` header and 400/413/429
+error shapes are documentation only (the handler reads the raw stream itself).
+
 Bytes are hashed and discarded. `cars` follows the size-based plan (decision 3); 413
 `PAYLOAD_TOO_LARGE` over 10,000,000 bytes (counted while streaming, not only `Content-Length`),
 400 when empty, 429 after ~10 uploads per minute per IP.
