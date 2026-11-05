@@ -125,8 +125,8 @@ call, and shape. All algorithm tests run without HTTP.
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
 same BFS route and same cars, every presentation. The one exception is playback: each car picks
-a random route among the equally short ones (see Playback), so which road a car drives varies
-between sends.
+a random route among the BFS-length routes and those up to two hops longer (see Playback), and
+cars leave at varied gaps and speeds, so traffic differs between sends.
 
 ### 8. One pure timeline
 
@@ -202,8 +202,9 @@ Medford → Eugene) and **inland** (LB ISP → LA/Riverside → Bakersfield → 
 Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon. A third, longer
 **east** (desert) corridor follows the I-15, US-95, I-84 and US-20 long-haul routes: Riverside →
 Barstow → Las Vegas → Tonopah → Winnemucca → Boise → Ontario → Pendleton, with cross-links
-Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops it never beats the 9-hop default; it carries
-traffic only when both western corridors are cut.
+Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops BFS never picks it over the 9-hop default (it
+is the BFS route only when both western corridors are cut), but in playback roughly one car in
+five drives it anyway (see Playback).
 
 ### Demo routes (asserted in tests)
 
@@ -262,10 +263,15 @@ simulation time `t`, using distances from the shared projection.
 - **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
   `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
   `packetizing` state is instantaneous and never shown.
-- **Each car picks its own route at random** among all routes with the same hop count as the BFS
-  result (the server answer stays deterministic; the web client breaks ties randomly per car,
-  with an injectable `rng` for tests). Every route a car takes is a valid fewest-hop route, but
-  it may differ from the highlighted BFS path.
+- **Each car picks its own route at random** (`sim/routes.ts`, `sim/plan.ts`) among every
+  working route with at most BFS hops + `ROUTE_SLACK` (2). Weights favour fewer hops (×0.55 per
+  extra hop) and roads few other routes share, so the lone desert corridor gets about a fifth of
+  the cars instead of none. The server answer stays deterministic and stays highlighted; cars
+  spread out like traffic and never use a broken station or road. `rng` is injectable for tests.
+- **Natural traffic.** Departure gaps vary (0.55–1.45 × `CAR_STAGGER_SEC`) and each car cruises
+  at its own speed (±12 %). Speeds are handed out fastest first, so no car drives through a
+  slower one on the shared road out of the CSULB lot. Without an `rng` the timeline is fully
+  deterministic.
 
 ## Playback (3D)
 

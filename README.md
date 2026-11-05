@@ -85,7 +85,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
-- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random equally short route.
+- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random route (BFS length or up to two hops longer, so some take the desert corridor) and cars leave at varied gaps and speeds.
 - **3D.** React Three Fiber scene driven by one pure timeline; without WebGL the map explains why
   and the sidebar still works.
 
