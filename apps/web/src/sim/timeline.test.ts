@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   BFS_STEP_SEC,
   CAR_SPEED,
+  CAR_SPEED_SPREAD,
   CAR_STAGGER_SEC,
   bfsStepsShown,
   buildTimeline,
   carFrame,
 } from './timeline';
+import { rng } from '../scene3d/world';
 
 const pos = new Map([
   ['a', { x: 0, y: 0 }],
@@ -32,6 +34,40 @@ describe('buildTimeline', () => {
 
   it('ends when the last car arrives', () => {
     expect(tl.end).toBeCloseTo(tl.plans[1]!.departAt + 200 / CAR_SPEED);
+  });
+});
+
+describe('buildTimeline with traffic randomness', () => {
+  const many = Array.from({ length: 12 }, (_, seq) => ({ ...cars[0]!, id: `car-${seq}`, seq }));
+  const tl = buildTimeline(
+    many,
+    many.map(() => route),
+    pos,
+    0,
+    rng(7),
+  );
+
+  it('gives each car its own speed, fastest first, within the spread', () => {
+    const speeds = tl.plans.map((p) => p.speed);
+    expect(new Set(speeds).size).toBeGreaterThan(1);
+    expect([...speeds].sort((a, b) => b - a)).toEqual(speeds);
+    for (const v of speeds) {
+      expect(v).toBeGreaterThanOrEqual(CAR_SPEED * (1 - CAR_SPEED_SPREAD));
+      expect(v).toBeLessThanOrEqual(CAR_SPEED * (1 + CAR_SPEED_SPREAD));
+    }
+  });
+
+  it('varies the gaps between departures around the stagger', () => {
+    const gaps = tl.plans.slice(1).map((p, i) => p.departAt - tl.plans[i]!.departAt);
+    expect(new Set(gaps.map((g) => g.toFixed(4))).size).toBeGreaterThan(1);
+    for (const g of gaps) {
+      expect(g).toBeGreaterThanOrEqual(CAR_STAGGER_SEC * 0.55 - 1e-9);
+      expect(g).toBeLessThanOrEqual(CAR_STAGGER_SEC * 1.45 + 1e-9);
+    }
+  });
+
+  it("times arrival from each car's own speed", () => {
+    for (const p of tl.plans) expect(p.arriveAt - p.departAt).toBeCloseTo(200 / p.speed);
   });
 });
 

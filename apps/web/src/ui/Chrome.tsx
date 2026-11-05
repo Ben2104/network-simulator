@@ -41,9 +41,10 @@ export function Header() {
         <div className="help" role="note">
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
-            cars. Send runs a breadth-first search for the fewest-hop route, then each car picks one
-            of the equally short routes at random and drives from the CSULB lot to the Oregon data
-            center.
+            cars. Send runs a breadth-first search for the fewest-hop route (highlighted). Like real
+            traffic, each car then picks its own route at random, usually a fewest-hop one but
+            sometimes a slightly longer road such as the desert corridor, and drives from the CSULB
+            lot to the Oregon data center.
           </p>
           <p>
             Click a station or road to break it, then Send again. Use the speed control to slow the

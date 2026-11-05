@@ -39,6 +39,23 @@ describe('API', () => {
     );
   });
 
+  it('documents /api/upload as a binary file body so Swagger UI shows a file picker', async () => {
+    const doc = (await app.inject({ method: 'GET', url: '/docs/json' })).json<{
+      paths: Record<string, Record<string, Record<string, unknown>>>;
+    }>();
+    const post = doc.paths['/api/upload']!['post']!;
+    expect(post['requestBody']).toMatchObject({
+      required: true,
+      content: { 'application/octet-stream': { schema: { type: 'string', format: 'binary' } } },
+    });
+    expect(post['parameters']).toEqual(
+      expect.arrayContaining([expect.objectContaining({ in: 'header', name: 'x-file-name' })]),
+    );
+    expect(Object.keys(post['responses']!)).toEqual(
+      expect.arrayContaining(['200', '400', '413', '429']),
+    );
+  });
+
   it('GET /api/health', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/health' });
     expect(res.statusCode).toBe(200);

@@ -17,6 +17,8 @@ import { parkedPose, poseAt, type CarPath, type Pose, type World } from './world
 
 /** Cars sit just above the road and lot surfaces. */
 export const CAR_Y = 0.1;
+/** Index of the wheels in the per-part instance refs (body, glass, wheels, lights). */
+const WHEELS = 2;
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number): BufferGeometry {
   return new BoxGeometry(w, h, d).translate(x, y, z);
@@ -93,12 +95,15 @@ export const Cars = memo(function Cars(props: Props) {
       const path = paths?.[i];
       const pose = path ? poseAt(path, t) : parkedPose(world.client, car.seq);
       poses.current[i] = pose;
-      for (const part of parts.current) {
+      parts.current.forEach((part, k) => {
         const o = part[i];
-        if (!o) continue;
+        if (!o) return;
         o.position.set(pose.x, CAR_Y, pose.z);
-        o.rotation.set(0, pose.heading, 0);
-      }
+        // Yaw first, then lean around the car's own forward (x) axis and pitch around its z.
+        // Wheels stay flat on the road; only the body, glass and lights lean.
+        if (k === WHEELS) o.rotation.set(0, pose.heading, 0, 'YXZ');
+        else o.rotation.set(pose.roll, pose.heading, pose.pitch, 'YXZ');
+      });
       const b = beacons.current[i];
       if (b) {
         const d = camera.position.distanceTo(b.position);
