@@ -16,6 +16,10 @@ export interface Vec2 {
 export interface Pose extends Vec2 {
   /** Yaw in radians around +y; 0 faces +x (east). */
   heading: number;
+  /** Body lean around the car's forward axis (radians, positive leans to the car's right). */
+  roll: number;
+  /** Nose up (positive) when accelerating, down when braking (radians). */
+  pitch: number;
   status: 'waiting' | 'driving' | 'arrived';
 }
 
@@ -130,9 +134,95 @@ export const headingOf = (d: Vec2) => Math.atan2(-d.z, d.x);
 export interface CarPath {
   seq: number;
   pts: Vec2[];
+  /** Distance from the start at each point. */
   cum: number[];
+  /** Relative cruising speed at each point (1 on straights, lower in turns). */
+  speed: number[];
+  /** Cumulative travel "time" (distance / relative speed) at each point. */
+  tcum: number[];
   departAt: number;
   arriveAt: number;
+}
+
+/** Corner radius for turns at stations, lot aisles and gates (a car is 2.4 long). */
+export const TURN_RADIUS = 3;
+/** Slowest relative speed in the tightest turn. */
+const MIN_TURN_SPEED = 0.4;
+/** How strongly curvature (radians per unit) slows a car. */
+const TURN_BRAKE = 2.2;
+/** Max change in relative speed per unit driven, so cars brake before and accelerate after turns. */
+const SPEED_SLEW = 0.06;
+
+/**
+ * Rounds every corner of a polyline with a quadratic fillet of up to `radius` (never more than
+ * 45 % of either neighbouring segment), so heading changes continuously instead of snapping.
+ * Nearly straight joints are left alone.
+ */
+export function smoothCorners(pts: readonly Vec2[], radius = TURN_RADIUS): Vec2[] {
+  if (pts.length < 3) return [...pts];
+  const out: Vec2[] = [pts[0]!];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]!;
+    const a = pts[i - 1]!;
+    const b = pts[i + 1]!;
+    const lin = dist(a, p);
+    const lout = dist(p, b);
+    if (lin < 1e-6 || lout < 1e-6) continue;
+    const din = { x: (p.x - a.x) / lin, z: (p.z - a.z) / lin };
+    const dout = { x: (b.x - p.x) / lout, z: (b.z - p.z) / lout };
+    const turn = Math.acos(Math.min(1, Math.max(-1, din.x * dout.x + din.z * dout.z)));
+    if (turn < 0.12) {
+      out.push(p);
+      continue;
+    }
+    const r = Math.min(radius, lin * 0.45, lout * 0.45);
+    const s0 = add(p, din, -r);
+    const s1 = add(p, dout, r);
+    const n = Math.max(3, Math.ceil(turn * 6));
+    for (let k = 0; k <= n; k++) {
+      const t = k / n;
+      const u = 1 - t;
+      out.push({
+        x: u * u * s0.x + 2 * u * t * p.x + t * t * s1.x,
+        z: u * u * s0.z + 2 * u * t * p.z + t * t * s1.z,
+      });
+    }
+  }
+  out.push(pts[pts.length - 1]!);
+  return out;
+}
+
+/** Signed heading change per unit at each point (positive = turning left, x east z south). */
+function curvatures(pts: readonly Vec2[], cum: readonly number[]): number[] {
+  const n = pts.length;
+  return pts.map((_, i) => {
+    if (i === 0 || i === n - 1) return 0;
+    const a = pts[i - 1]!;
+    const p = pts[i]!;
+    const b = pts[i + 1]!;
+    const h0 = Math.atan2(-(p.z - a.z), p.x - a.x);
+    const h1 = Math.atan2(-(b.z - p.z), b.x - p.x);
+    let d = h1 - h0;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    const span = (cum[i + 1]! - cum[i - 1]!) / 2;
+    return span > 1e-6 ? d / span : 0;
+  });
+}
+
+/**
+ * Relative speed along a path: slower the tighter the turn, and rate-limited both ways so a car
+ * brakes before a corner and accelerates out of it instead of changing speed instantly.
+ */
+function speedProfile(pts: readonly Vec2[], cum: readonly number[]): number[] {
+  const v = curvatures(pts, cum).map((k) =>
+    Math.max(MIN_TURN_SPEED, 1 / (1 + TURN_BRAKE * Math.abs(k))),
+  );
+  for (let i = 1; i < v.length; i++)
+    v[i] = Math.min(v[i]!, v[i - 1]! + SPEED_SLEW * (cum[i]! - cum[i - 1]!));
+  for (let i = v.length - 2; i >= 0; i--)
+    v[i] = Math.min(v[i]!, v[i + 1]! + SPEED_SLEW * (cum[i + 1]! - cum[i]!));
+  return v;
 }
 
 /** Shifts a polyline sideways by `offset` (positive = right of travel). Ends stay put. */
@@ -160,18 +250,35 @@ export function carPath(world: World, network: Network, plan: CarPlan): CarPath 
   });
   const start = lotSlot(world.client, plan.seq);
   const end = lotSlot(world.server, plan.seq);
-  const pts = [start.slot, start.aisle, ...offsetLine(road, LANE_OFFSET), end.aisle, end.slot];
+  const pts = smoothCorners([
+    start.slot,
+    start.aisle,
+    ...offsetLine(road, LANE_OFFSET),
+    end.aisle,
+    end.slot,
+  ]);
   const cum = [0];
   for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1]! + dist(pts[i - 1]!, pts[i]!));
-  return { seq: plan.seq, pts, cum, departAt: plan.departAt, arriveAt: plan.arriveAt };
+  const speed = speedProfile(pts, cum);
+  const tcum = [0];
+  for (let i = 1; i < pts.length; i++)
+    tcum.push(tcum[i - 1]! + (cum[i]! - cum[i - 1]!) / ((speed[i - 1]! + speed[i]!) / 2));
+  return {
+    seq: plan.seq,
+    pts,
+    cum,
+    speed,
+    tcum,
+    departAt: plan.departAt,
+    arriveAt: plan.arriveAt,
+  };
 }
 
 function pointAt(path: CarPath, d: number): Vec2 {
   const { pts, cum } = path;
   const total = cum[cum.length - 1]!;
   const clamped = Math.min(Math.max(d, 0), total);
-  let k = 1;
-  while (k < cum.length - 1 && cum[k]! < clamped) k++;
+  const k = segmentAt(cum, clamped);
   const seg = cum[k]! - cum[k - 1]!;
   const f = seg === 0 ? 0 : (clamped - cum[k - 1]!) / seg;
   return {
@@ -188,19 +295,79 @@ const ease = (f: number) => {
   return (f - e / 2) / (1 - e);
 };
 
-/** Where car `path` is at sim time `t`. */
+/** Index k with arr[k - 1] <= x <= arr[k] (binary search on a non-decreasing array). */
+function segmentAt(arr: readonly number[], x: number): number {
+  let lo = 1;
+  let hi = arr.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (arr[mid]! < x) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/** Distance driven after `f` (0–1) of the trip's time, following the speed profile. */
+function distanceAt(path: CarPath, f: number): number {
+  const { cum, tcum } = path;
+  const t = f * tcum[tcum.length - 1]!;
+  const k = segmentAt(tcum, t);
+  const span = tcum[k]! - tcum[k - 1]!;
+  const g = span === 0 ? 0 : (t - tcum[k - 1]!) / span;
+  return cum[k - 1]! + (cum[k]! - cum[k - 1]!) * g;
+}
+
+function speedAt(path: CarPath, d: number): number {
+  const { cum, speed } = path;
+  const total = cum[cum.length - 1]!;
+  const k = segmentAt(cum, Math.min(Math.max(d, 0), total));
+  const seg = cum[k]! - cum[k - 1]!;
+  const g = seg === 0 ? 0 : (Math.min(Math.max(d, 0), total) - cum[k - 1]!) / seg;
+  return speed[k - 1]! + (speed[k]! - speed[k - 1]!) * g;
+}
+
+/** Signed heading change from `a` to `b` in (−π, π]. */
+function turnBetween(a: Vec2, b: Vec2): number {
+  let d = headingOf(b) - headingOf(a);
+  while (d > Math.PI) d -= 2 * Math.PI;
+  while (d <= -Math.PI) d += 2 * Math.PI;
+  return d;
+}
+
+/** Largest body lean and pitch (radians); small, so the effect reads as weight, not a wobble. */
+const MAX_ROLL = 0.07;
+const MAX_PITCH = 0.035;
+
+/**
+ * Where car `path` is at sim time `t`. Time maps to distance through the path's speed profile,
+ * so the car slows into turns and speeds up out of them while still leaving and arriving on the
+ * shared timeline. Heading points from the rear axle to the front axle (a short look-ahead), and
+ * the body leans out of turns and pitches with acceleration.
+ */
 export function poseAt(path: CarPath, t: number): Pose {
   const total = path.cum[path.cum.length - 1]!;
   const span = Math.max(path.arriveAt - path.departAt, 1e-6);
   const f = Math.min(Math.max((t - path.departAt) / span, 0), 1);
-  const d = ease(f) * total;
+  const d = distanceAt(path, ease(f));
   const p = pointAt(path, d);
-  // Heading from a short look-ahead/behind window so corners turn smoothly.
-  const a = pointAt(path, d - 0.8);
-  const b = pointAt(path, d + 0.8);
-  const dir = { x: b.x - a.x, z: b.z - a.z };
+  const rear = pointAt(path, d - 0.6);
+  const front = pointAt(path, d + 1);
+  const dir = { x: front.x - rear.x, z: front.z - rear.z };
   const status = t < path.departAt ? 'waiting' : t >= path.arriveAt ? 'arrived' : 'driving';
-  return { ...p, heading: headingOf(dir), status };
+  if (status !== 'driving' || total === 0)
+    return { ...p, heading: headingOf(dir), roll: 0, pitch: 0, status };
+
+  // Lean: lateral acceleration ~ speed² × curvature. A left turn (positive) throws the body to
+  // the right, which is positive roll around the forward axis.
+  const a0 = pointAt(path, d - 2);
+  const b0 = pointAt(path, d + 2);
+  const turn = turnBetween({ x: p.x - a0.x, z: p.z - a0.z }, { x: b0.x - p.x, z: b0.z - p.z });
+  const v = speedAt(path, d);
+  const roll = Math.max(-MAX_ROLL, Math.min(MAX_ROLL, turn * v * v * 0.25));
+  // Pitch: nose up while speeding up (squat), down while braking (dive).
+  const accel = speedAt(path, d + 3) - speedAt(path, d - 3);
+  const pitch = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, accel * 0.12));
+  return { ...p, heading: headingOf(dir), roll, pitch, status };
 }
 
 /** Pose of a car that is parked in `lot` with no plan (before Send, or unreachable). */
@@ -209,6 +376,8 @@ export function parkedPose(lot: Lot, seq: number): Pose {
   return {
     ...slot,
     heading: headingOf({ x: aisle.x - slot.x, z: aisle.z - slot.z }),
+    roll: 0,
+    pitch: 0,
     status: 'waiting',
   };
 }

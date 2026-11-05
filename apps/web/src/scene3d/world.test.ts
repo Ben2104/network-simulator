@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAP_HEIGHT, MAP_WIDTH, project, type Network } from '@netsim/shared';
+import mockNetwork from '@netsim/shared/mocks/network.json';
 import { buildTimeline } from '../sim/timeline';
 import {
   bounds,
@@ -14,6 +15,7 @@ import {
   poseAt,
   roadCurve,
   rng,
+  smoothCorners,
   toWorld,
 } from './world';
 
@@ -155,6 +157,95 @@ describe('carPath and poseAt', () => {
     const t = (paths[2]!.departAt + paths[0]!.arriveAt) / 2;
     expect(leadCar(paths, t)).toBe(0);
     expect(leadCar(paths, 0)).toBe(-1);
+  });
+});
+
+describe('natural turns', () => {
+  const real = mockNetwork as Network;
+  const realWorld = buildWorld(real);
+  const realPos = new Map(real.nodes.map((n) => [n.id, project(n.lat, n.lon)]));
+  // The default 9-hop route: sharp corners at most stations.
+  const ids = [
+    'csulb',
+    'el-segundo',
+    'slo',
+    'san-jose',
+    'oakland',
+    'redding',
+    'medford',
+    'eugene',
+    'bend',
+    'oregon-dc',
+  ];
+  const linkIds = ids.slice(1).map((id, i) => {
+    const l = real.links.find(
+      (k) => (k.source === ids[i] && k.target === id) || (k.target === ids[i] && k.source === id),
+    )!;
+    return l.id;
+  });
+  const tl = buildTimeline(cars.slice(0, 1), [{ nodeIds: ids, linkIds }], realPos, 0);
+  const path = carPath(realWorld, real, tl.plans[0]!);
+  const wrap = (a: number) => Math.atan2(Math.sin(a), Math.cos(a));
+
+  it('rounds a right-angle corner into a smooth arc', () => {
+    const pts = smoothCorners([
+      { x: 0, z: 0 },
+      { x: 10, z: 0 },
+      { x: 10, z: 10 },
+    ]);
+    expect(pts[0]).toEqual({ x: 0, z: 0 });
+    expect(pts.at(-1)).toEqual({ x: 10, z: 10 });
+    expect(pts.length).toBeGreaterThan(5);
+    for (let i = 2; i < pts.length; i++) {
+      const h0 = Math.atan2(pts[i - 1]!.z - pts[i - 2]!.z, pts[i - 1]!.x - pts[i - 2]!.x);
+      const h1 = Math.atan2(pts[i]!.z - pts[i - 1]!.z, pts[i]!.x - pts[i - 1]!.x);
+      expect(Math.abs(wrap(h1 - h0))).toBeLessThan(0.5);
+    }
+  });
+
+  it('leaves a straight line alone', () => {
+    const line = [0, 5, 10].map((x) => ({ x, z: 0 }));
+    expect(smoothCorners(line)).toEqual(line);
+  });
+
+  it('never snaps the heading between frames, even at stations and lot gates', () => {
+    const steps = 4000;
+    let prev = poseAt(path, path.departAt).heading;
+    let worst = 0;
+    for (let i = 1; i <= steps; i++) {
+      const t = path.departAt + ((path.arriveAt - path.departAt) * i) / steps;
+      const h = poseAt(path, t).heading;
+      worst = Math.max(worst, Math.abs(wrap(h - prev)));
+      prev = h;
+    }
+    expect(worst).toBeLessThan(0.25);
+  });
+
+  it('slows down in turns and is quicker on straights', () => {
+    expect(Math.min(...path.speed)).toBeLessThan(0.8);
+    expect(Math.max(...path.speed)).toBeGreaterThan(0.99);
+  });
+
+  it('still leaves and arrives on the shared timeline', () => {
+    expect(poseAt(path, path.departAt - 0.1).status).toBe('waiting');
+    expect(poseAt(path, path.arriveAt).status).toBe('arrived');
+    const end = poseAt(path, path.arriveAt);
+    expect(end.x).toBeCloseTo(path.pts.at(-1)!.x);
+    expect(end.z).toBeCloseTo(path.pts.at(-1)!.z);
+  });
+
+  it('leans out of turns and stays level when parked', () => {
+    const p = carPath(world, network, timeline.plans[0]!);
+    expect(parkedPose(world.client, 0)).toMatchObject({ roll: 0, pitch: 0 });
+    expect(poseAt(p, p.departAt - 1)).toMatchObject({ roll: 0, pitch: 0 });
+    let maxRoll = 0;
+    for (let i = 1; i < 400; i++) {
+      const pose = poseAt(path, path.departAt + ((path.arriveAt - path.departAt) * i) / 400);
+      maxRoll = Math.max(maxRoll, Math.abs(pose.roll));
+      expect(Math.abs(pose.pitch)).toBeLessThanOrEqual(0.035);
+    }
+    expect(maxRoll).toBeGreaterThan(0);
+    expect(maxRoll).toBeLessThanOrEqual(0.07);
   });
 });
 

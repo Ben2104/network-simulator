@@ -292,6 +292,11 @@ simulation time `t`, using distances from the shared projection.
   driven target → source) → Oregon gate → slot. A car's progress is
   `(t − departAt) / (arriveAt − departAt)` from the shared timeline, so the sidebar counts and
   the cars always agree.
+- **Natural turns.** Every corner of a car's path (slot exits, lot gates, stations) is rounded
+  with a fillet of up to `TURN_RADIUS`. A speed profile from the path's curvature makes cars
+  brake into turns and accelerate out (rate-limited), while still leaving and arriving at the
+  timeline's times. Heading points rear axle → front axle; the body leans out of turns and
+  pitches with acceleration (wheels stay flat).
 - **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the BFS
   panel uses. Labels show "BFS depth N" while searching.
 - **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, beacon): five draw
