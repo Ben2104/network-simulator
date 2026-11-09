@@ -53,7 +53,7 @@ Every env variable each app reads is listed, with a comment, in its `.env.exampl
 | `npm run format`                  | Prettier write                                    |
 | `npm run format:check`            | Prettier check                                    |
 | `npm run check`                   | lint + format:check + typecheck + test (pre-push) |
-| `npm run test:e2e -w @netsim/web` | Playwright: 3D smoke test and no-WebGL fallback   |
+| `npm run test:e2e -w @netsim/web` | Playwright: upload, 3D smoke, no-WebGL fallback   |
 
 Per-package: `npm run <script> -w @netsim/server` (or `@netsim/web`, `@netsim/shared`).
 
@@ -139,8 +139,10 @@ before presenting.
 4. Open a PR; one reviewer approval to merge. The PR template lists what to confirm.
 
 **CI** (`.github/workflows/ci.yml`) runs on every PR and on push to `main`: job `check`
-(lint, format, typecheck, test, build for shared, server and web) must be green before merge.
-Runs on `main` are never cancelled; only superseded PR runs are.
+(lint, format, typecheck, test, build for shared, server and web) and job `e2e` (Playwright in
+headless Chromium against the API and web dev servers, browser cached, report and traces uploaded
+as the `playwright-report` artifact when it fails) must be green before merge. The two jobs run in
+parallel. Runs on `main` are never cancelled; only superseded PR runs are.
 
 **CD** (`.github/workflows/deploy.yml`) runs only after CI succeeds on a push to `main`, never on
 PRs. It compares the CI run's head commit with its parent. If `apps/server/**`,
@@ -148,7 +150,8 @@ PRs. It compares the CI run's head commit with its parent. If `apps/server/**`,
 builds shared and server to prove they build, then calls the Render deploy hook for `netsim-api`
 (`autoDeployTrigger: off`, so nothing else deploys it). Front-end-only changes deploy nothing from
 this workflow; Vercel handles them. CD uses the `production` GitHub Environment and the secret
-`RENDER_API_DEPLOY_HOOK`; a missing secret skips the deploy with a notice.
+`RENDER_API_DEPLOY_HOOK`; a missing secret skips the deploy with a notice. Because CD waits for
+the whole CI run, a failing `e2e` on `main` blocks the API deploy.
 
 ### One-time setup (repo owner)
 
