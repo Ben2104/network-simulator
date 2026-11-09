@@ -463,13 +463,13 @@ the error banner.
 
 ## Testing
 
-| Layer      | Tool                     | Covers                                                                |
-| ---------- | ------------------------ | --------------------------------------------------------------------- |
-| Algorithms | Vitest                   | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
-| API        | Vitest + `inject()`      | Endpoints, validation, error codes                                    |
-| Sim        | Vitest                   | Reducer transitions, BFS car plans, timeline ordering                 |
-| E2E        | Playwright (3D)          | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
-| 3D         | Manual checklist + smoke | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
+| Layer      | Tool                      | Covers                                                                |
+| ---------- | ------------------------- | --------------------------------------------------------------------- |
+| Algorithms | Vitest                    | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
+| API        | Vitest + `inject()`       | Endpoints, validation, error codes                                    |
+| Sim        | Vitest                    | Reducer transitions, BFS car plans, timeline ordering                 |
+| E2E        | Playwright (CI job `e2e`) | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
+| 3D         | Manual checklist + smoke  | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 
 ## Implementation status
 
@@ -484,7 +484,8 @@ the error banner.
 | `/packetize`, `fromNodeId`             | To do (web packetizes client-side meanwhile)      |
 | `sim/` hook + timeline                 | Done (`useSimulation`, `timeline.ts`)             |
 | 3D scene, cars, camera                 | Done (primitives); Kenney models pending (#22)    |
-| Component + E2E tests                  | To do                                             |
+| E2E tests (Playwright, CI job `e2e`)   | Done                                              |
+| Component tests                        | To do                                             |
 
 ## Roadmap
 
