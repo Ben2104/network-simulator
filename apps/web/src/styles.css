@@ -1055,3 +1055,91 @@ textarea {
 .timing-table td .hint {
   display: block;
 }
+
+.routing-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.routing-options .btn {
+  flex: 1 1 130px;
+}
+.road-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.road-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.bandwidth-editor {
+  padding: 10px;
+  margin: 6px 0 12px;
+  background: var(--color-surface-2);
+  border-radius: 8px;
+}
+.bandwidth-editor select {
+  width: 100%;
+  padding: 8px;
+  margin: 4px 0 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font: inherit;
+}
+.route-cost {
+  padding: 8px;
+  background: var(--color-route-soft);
+  color: var(--color-route-text);
+  border-radius: 6px;
+}
+.route-text {
+  color: var(--color-route-text);
+}
+
+.road-row {
+  padding-inline: 8px;
+}
+.road-previewed {
+  background: var(--color-explore-soft);
+  border-radius: 8px;
+  outline: 2px solid var(--color-explore);
+  outline-offset: -2px;
+}
+.road-map-preview {
+  position: absolute;
+  bottom: 64px;
+  left: 20px;
+  max-width: calc(100% - 40px);
+  padding: 10px 14px;
+  border: 2px solid var(--color-explore);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  pointer-events: none;
+  display: grid;
+  gap: 4px;
+  z-index: 3;
+}
+.road-map-preview span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.route-cost-breakdown {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+}
+.chip-toggle {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+}

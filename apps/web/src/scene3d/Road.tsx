@@ -11,6 +11,8 @@ export type RoadState = 'idle' | 'path' | 'offline';
 
 interface Props {
   curve: Vec2[];
+  previewed: boolean;
+  id: string;
   state: RoadState;
 }
 
@@ -36,7 +38,7 @@ function dashes(curve: Vec2[]): Vec2[][] {
 }
 
 /** Slightly arched road between two stations; glows in the route colour when on the path. */
-export const Road = memo(function Road({ curve, state }: Props) {
+export const Road = memo(function Road({ curve, state, previewed, id }: Props) {
   const asphalt = useMemo(() => ribbon(curve, ROAD_WIDTH, 0.06), [curve]);
   const glow = useMemo(() => ribbon(curve, ROAD_WIDTH * 2.4, 0.04), [curve]);
   const paint = useMemo(
@@ -55,7 +57,30 @@ export const Road = memo(function Road({ curve, state }: Props) {
   });
 
   return (
-    <group>
+    <group userData={{ roadId: id, previewed }}>
+      {previewed && (
+        <group>
+          <Line
+            points={line}
+            color="#ffffff"
+            lineWidth={11}
+            depthTest={false}
+            depthWrite={false}
+            renderOrder={10}
+          />
+          <Line
+            points={line}
+            color={state === 'offline' ? C.danger : C.explore}
+            lineWidth={6}
+            depthTest={false}
+            depthWrite={false}
+            renderOrder={11}
+            dashed={state === 'offline'}
+            dashSize={3}
+            gapSize={2}
+          />
+        </group>
+      )}
       {state === 'offline' && (
         <Line points={line} color={C.danger} lineWidth={4} dashed dashSize={3} gapSize={2} />
       )}

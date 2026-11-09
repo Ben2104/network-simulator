@@ -1,5 +1,11 @@
 # Component map — Figma → React
 
+Current routing extension: `RoutingControls` in `ui/RoutingControls.tsx` selects BFS/Dijkstra;
+`RoadEditor` in `ui/RoadEditor.tsx` offers only 10/100/1000 Mbps in the Roads list, visible only in Dijkstra mode. BFS hides bandwidth and cost controls. Settings are
+locked during active transfers. `RouteCard` uses the actual response algorithm: BFS shows FIFO
+visit order; Dijkstra shows settled order and cumulative costs. Total route cost is unitless.
+See `docs/architecture.md` for the optional backward-compatible API fields and retry behavior.
+
 Source frames: Page 1 `1:2` (Broken Station) and `1:361` (Driving). Page `v2 Light` supersedes
 colors and fixes (see `docs/superpowers/specs/2026-10-20-light-theme-team-kickoff-design.md` §3).
 State names are from the `sim/useSimulation` state machine (`idle`, `packetizing`, `loaded`,
@@ -47,3 +53,18 @@ All paths are under `apps/web/src/`.
 5. Transit velocity (km/h), Est. completion time, Throughput (pkts/s).
 6. "Priority Queue" / Q1, Q2 priority badges (BFS queue is FIFO; no priority field).
 7. File name and MB size in Your File: blocked until `/packetize` lands in `schemas.ts` (Plan 1).
+
+Roads list hover/keyboard focus previews the matching map road with a thick outlined line and
+a map caption naming both endpoints. Opening Edit pins the preview until Apply/Cancel; closing
+Roads clears it. Offline roads keep their red dashed preview. Previewing never toggles a failure
+or changes the selected route.
+
+Router rows also preview their node on hover/keyboard focus, using an outlined ring and a name
+caption. Offline routers retain red. Moving away or closing Routers clears the preview; hover
+never toggles the router.
+
+Dijkstra's yellow chosen-route chips show cumulative cost from the sender, using the API response
+for that run. The total includes a per-road sum; each link cost is the difference between the
+settled costs of adjacent path nodes. Blue chips show the search settlement order, including
+other candidate nodes. The “+N more” button expands the full visited list and “Show less” collapses
+it; a new route starts collapsed. BFS retains hop counts and its FIFO list without cost labels.

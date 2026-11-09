@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { CameraMode, RigApi } from '../scene3d/CameraRig';
+import type { RoutingAlgorithm } from '@netsim/shared';
 import type { Tone } from './copy';
 
 export function Header() {
@@ -41,14 +42,14 @@ export function Header() {
         <div className="help" role="note">
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
-            cars. Send runs a breadth-first search for the fewest-hop route (highlighted). Most cars
-            drive that route from the CSULB lot to the Oregon data center; a few wander other roads.
-            Each station lights up as a car reaches it.
+            cars. Choose BFS for fewest hops or Dijkstra for lowest configured road cost, then Send.
+            All groups follow the route chosen by the selected algorithm. Each station lights up as
+            a car reaches it.
           </p>
           <p>
             Use the speed control to slow the cars down for a presentation. Click a router to switch
             it offline or online during a run. Affected unfinished groups retry from the sender
-            using BFS. Use the sidebar switches for road failures.
+            using the selected algorithm. Use the sidebar switches for road failures.
           </p>
           <p>
             Drag to orbit, right-drag to pan, scroll to zoom. Auto camera follows the action; Follow
@@ -82,7 +83,7 @@ export function Footer(props: { text: string; hint: string; tone: Tone }) {
   );
 }
 
-export function Legend() {
+export function Legend(props: { algorithm?: RoutingAlgorithm }) {
   return (
     <div className="legend" aria-label="Legend">
       <h3>Legend</h3>
@@ -100,7 +101,8 @@ export function Legend() {
           <i className="key car" /> Packet car
         </li>
         <li>
-          <i className="key visited" /> Visited by BFS
+          <i className="key visited" /> Visited by{' '}
+          {props.algorithm === 'dijkstra' ? 'Dijkstra' : 'BFS'}
         </li>
         <li>
           <i className="key broken" /> Offline

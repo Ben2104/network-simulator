@@ -25,6 +25,16 @@ describe('describePhase', () => {
     expect(c.banner).toContain('(1,048,576 B) · 700 packets prepared into 24 packet cars');
   });
 
+  it('describes Dijkstra search and cost without claiming it is BFS or measured latency', () => {
+    const searching = describePhase({ ...base, algorithm: 'dijkstra', phase: 'searching' });
+    expect(searching.banner).toContain('Dijkstra');
+    expect(searching.banner).not.toContain('BFS');
+    expect(searching.footerHint).toContain('not measured latency');
+    expect(describePhase({ ...base, algorithm: 'dijkstra', phase: 'routing' }).banner).toContain(
+      'lowest-cost',
+    );
+  });
+
   it('says Paused while paused mid-drive', () => {
     expect(describePhase({ ...base, phase: 'driving', paused: true }).footer).toMatch(/^Paused/);
   });

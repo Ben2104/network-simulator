@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   project,
+  isBandwidthMbps,
+  ROUTING,
+  type BandwidthMbps,
+  type RoutingAlgorithm,
   type Network,
   type PacketizeRequest,
   type PacketizeResponse,
@@ -60,6 +64,8 @@ export function useSimulation(network: Network | null) {
   );
   const [upload, setUpload] = useState<Upload | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
+  const [algorithm, setAlgorithm] = useState<RoutingAlgorithm>('bfs');
+  const [linkBandwidthMbps, setLinkBandwidthMbps] = useState<Record<string, BandwidthMbps>>({});
   const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
   const [rerouting, setRerouting] = useState(false);
@@ -209,19 +215,12 @@ export function useSimulation(network: Network | null) {
     setPaused(false);
     try {
       const route = await api.route({
+        algorithm,
+        ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
         disabledNodeIds: [...disabledNodeIds],
         disabledLinkIds: [...disabledLinkIds],
       });
       if (id !== requestId.current) return;
-      const available = {
-        ...network,
-        links: network.links.filter(
-          (l) =>
-            !disabledLinkIds.has(l.id) &&
-            !disabledNodeIds.has(l.source) &&
-            !disabledNodeIds.has(l.target),
-        ),
-      };
       const timeline =
         route.status === 'unreachable'
           ? blockedTimeline(
@@ -230,7 +229,7 @@ export function useSimulation(network: Network | null) {
               pos,
               route.visitOrder.length * BFS_STEP_SEC,
             )
-          : planRun(available, upload.packets, route, pos, Math.random);
+          : planRun(upload.packets, route, pos, Math.random);
       setRerouteCount(0);
       setRun({ route, timeline });
     } catch (e) {
@@ -239,7 +238,7 @@ export function useSimulation(network: Network | null) {
     } finally {
       if (id === requestId.current) setRouting(false);
     }
-  }, [network, pos, upload, disabledNodeIds, disabledLinkIds]);
+  }, [network, pos, upload, disabledNodeIds, disabledLinkIds, algorithm, linkBandwidthMbps]);
 
   const updateFailures = useCallback(
     async (nodes: ReadonlySet<string>, links: ReadonlySet<string>) => {
@@ -255,6 +254,8 @@ export function useSimulation(network: Network | null) {
       try {
         const route = await api.route({
           fromNodeId: network.clientId,
+          algorithm,
+          ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
           disabledNodeIds: [...nodes],
           disabledLinkIds: [...links],
         });
@@ -273,7 +274,7 @@ export function useSimulation(network: Network | null) {
         }
       }
     },
-    [network, rerouting, routing, run, phase, pos],
+    [network, rerouting, routing, run, phase, pos, algorithm, linkBandwidthMbps],
   );
 
   const toggleFailure = (kind: 'node' | 'link', id: string) => {
@@ -301,7 +302,33 @@ export function useSimulation(network: Network | null) {
     setDisabledLinkIds(new Set());
   }, [clearRun]);
 
+  const canConfigure =
+    !routing && !rerouting && (!run || phase === 'delivered' || phase === 'noRoute');
+  const configureBandwidth = (id: string, mbps: number) => {
+    if (!canConfigure || !network?.links.some((l) => l.id === id)) return;
+    if (!isBandwidthMbps(mbps)) throw new RangeError('Choose 10, 100 or 1000 Mbps');
+    setLinkBandwidthMbps((old) => {
+      const next = { ...old };
+      if (mbps === ROUTING.defaultBandwidthMbps) delete next[id];
+      else next[id] = mbps;
+      return next;
+    });
+  };
+
   return {
+    algorithm,
+    linkBandwidthMbps,
+    canConfigure,
+    selectAlgorithm: (value: RoutingAlgorithm) => {
+      if (canConfigure && value !== algorithm) {
+        clearRun();
+        setAlgorithm(value);
+      }
+    },
+    configureBandwidth,
+    resetBandwidths: () => {
+      if (canConfigure) setLinkBandwidthMbps({});
+    },
     phase,
     elapsed: clock,
     disabledNodeIds,
