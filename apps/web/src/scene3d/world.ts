@@ -1,5 +1,5 @@
 import { MAP_HEIGHT, MAP_WIDTH, project, type Network } from '@netsim/shared';
-import type { CarPlan } from '../sim/timeline';
+import { carStatus, type CarPlan } from '../sim/timeline';
 
 /**
  * Pure 3D layout: where stations, roads, lots and cars sit in world space. No three.js imports, so
@@ -20,7 +20,7 @@ export interface Pose extends Vec2 {
   roll: number;
   /** Nose up (positive) when accelerating, down when braking (radians). */
   pitch: number;
-  status: 'waiting' | 'driving' | 'arrived';
+  status: 'waiting' | 'driving' | 'arrived' | 'blocked';
 }
 
 export function toWorld(lat: number, lon: number): Vec2 {
@@ -132,6 +132,7 @@ export function lotSlot(lot: Lot, seq: number): { slot: Vec2; aisle: Vec2 } {
 export const headingOf = (d: Vec2) => Math.atan2(-d.z, d.x);
 
 export interface CarPath {
+  blocked?: boolean;
   seq: number;
   pts: Vec2[];
   /** Distance from the start at each point. */
@@ -240,6 +241,19 @@ function offsetLine(pts: Vec2[], offset: number): Vec2[] {
  * shared timeline, so 3D and 2D cars leave and arrive together.
  */
 export function carPath(world: World, network: Network, plan: CarPlan): CarPath {
+  if (plan.blocked) {
+    const at = lotSlot(world.client, plan.seq).slot;
+    return {
+      seq: plan.seq,
+      pts: [at, at],
+      cum: [0, 0],
+      speed: [1, 1],
+      tcum: [0, 0],
+      departAt: plan.departAt,
+      arriveAt: plan.arriveAt,
+      blocked: true,
+    };
+  }
   const linkById = new Map(network.links.map((l) => [l.id, l]));
   const road: Vec2[] = [];
   plan.route.linkIds.forEach((id, i) => {
@@ -345,6 +359,7 @@ const MAX_PITCH = 0.035;
  * the body leans out of turns and pitches with acceleration.
  */
 export function poseAt(path: CarPath, t: number): Pose {
+  if (path.blocked) return { ...path.pts[0]!, heading: 0, roll: 0, pitch: 0, status: 'blocked' };
   const total = path.cum[path.cum.length - 1]!;
   const span = Math.max(path.arriveAt - path.departAt, 1e-6);
   const f = Math.min(Math.max((t - path.departAt) / span, 0), 1);
@@ -353,7 +368,7 @@ export function poseAt(path: CarPath, t: number): Pose {
   const rear = pointAt(path, d - 0.6);
   const front = pointAt(path, d + 1);
   const dir = { x: front.x - rear.x, z: front.z - rear.z };
-  const status = t < path.departAt ? 'waiting' : t >= path.arriveAt ? 'arrived' : 'driving';
+  const status = carStatus(path, t);
   if (status !== 'driving' || total === 0)
     return { ...p, heading: headingOf(dir), roll: 0, pitch: 0, status };
 

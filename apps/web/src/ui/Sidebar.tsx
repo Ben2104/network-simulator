@@ -118,6 +118,7 @@ export function SendPlayback(props: {
   paused: boolean;
   speed: Speed;
   onSend: () => void;
+  busy?: boolean;
   onPause: () => void;
   onReset: () => void;
   onSpeed: (s: Speed) => void;
@@ -139,7 +140,7 @@ export function SendPlayback(props: {
         <button
           type="button"
           className="btn primary"
-          disabled={!(canSend || phase === 'error')}
+          disabled={props.busy || !(canSend || phase === 'error')}
           onClick={props.onSend}
         >
           ➤ {sendLabel}
@@ -147,7 +148,9 @@ export function SendPlayback(props: {
         <button
           type="button"
           className="btn"
-          disabled={phase !== 'searching' && phase !== 'driving'}
+          disabled={
+            props.busy || (phase !== 'searching' && phase !== 'driving' && phase !== 'blocked')
+          }
           aria-pressed={props.paused}
           onClick={props.onPause}
         >
@@ -196,7 +199,7 @@ export function RouteCard(props: {
         <h2>Route (BFS)</h2>
         {phase === 'error' ? (
           <span className="mono muted">-- hops</span>
-        ) : phase === 'noRoute' ? (
+        ) : route?.status === 'unreachable' ? (
           <span className="badge danger">0 hops · No Path</span>
         ) : hops > 0 ? (
           <span className="badge route">{hops} hops</span>
@@ -212,7 +215,7 @@ export function RouteCard(props: {
           <p>{props.apiError}</p>
         </div>
       )}
-      {phase === 'noRoute' && (
+      {route?.status === 'unreachable' && (
         <div className="callout danger">
           <strong>Destination unreachable</strong>
           <p>

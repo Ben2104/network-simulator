@@ -2,8 +2,7 @@
 
 Submit a file at the **CSULB parking lot**. It is split into packets, shown as 3D **cars**.
 Press **Send**: breadth-first search explores a West Coast network of **stations** (routers),
-then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Break stations
-or roads and send again to watch it reroute.
+then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch affected unfinished groups retry from the sender using BFS. Restore connections to release blocked groups. The Transfer timing card shows simulated group and total completion times.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
 > illustrative, not real ISP topology. The app does not inspect, control, or route real network

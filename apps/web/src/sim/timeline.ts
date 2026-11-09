@@ -33,6 +33,11 @@ export interface CarPlan {
   cum: number[];
   departAt: number;
   arriveAt: number;
+  /** Previous attempt retained only for timing; replacement copies restart at the sender. */
+  previous?: CarPlan;
+  interruptedAt?: number;
+  retries?: number;
+  blocked?: boolean;
 }
 
 export interface Timeline {
@@ -45,7 +50,7 @@ export interface Timeline {
 export interface CarFrame {
   carId: string;
   seq: number;
-  status: 'waiting' | 'driving' | 'arrived';
+  status: 'waiting' | 'driving' | 'arrived' | 'blocked';
   x: number;
   y: number;
   /** Heading in degrees, 0 = east, clockwise (SVG convention). */
@@ -101,7 +106,26 @@ export function buildTimeline(
   return { driveStart, plans, end: Math.max(driveStart, ...plans.map((p) => p.arriveAt)) };
 }
 
+export function carStatus(
+  plan: Pick<CarPlan, 'blocked' | 'departAt' | 'arriveAt'>,
+  t: number,
+): CarFrame['status'] {
+  if (plan.blocked) return 'blocked';
+  return t < plan.departAt ? 'waiting' : t >= plan.arriveAt ? 'arrived' : 'driving';
+}
+
 export function carFrame(plan: CarPlan, t: number): CarFrame {
+  if (plan.blocked) {
+    const p = plan.points[0]!;
+    return {
+      carId: plan.carId,
+      seq: plan.seq,
+      x: p.x,
+      y: p.y,
+      angle: 0,
+      status: carStatus(plan, t),
+    };
+  }
   const total = plan.cum[plan.cum.length - 1]!;
   const dist = Math.min(Math.max((t - plan.departAt) * plan.speed, 0), total);
   let k = 1;
@@ -113,7 +137,7 @@ export function carFrame(plan: CarPlan, t: number): CarFrame {
   return {
     carId: plan.carId,
     seq: plan.seq,
-    status: t < plan.departAt ? 'waiting' : t >= plan.arriveAt ? 'arrived' : 'driving',
+    status: carStatus(plan, t),
     x: a.x + (b.x - a.x) * f,
     y: a.y + (b.y - a.y) * f,
     angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,

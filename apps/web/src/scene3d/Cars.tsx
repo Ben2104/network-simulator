@@ -13,7 +13,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Car } from '@netsim/shared';
-import { CAR_COLORS } from './palette';
+import { CAR_COLORS, C } from './palette';
 import { parkedPose, poseAt, type CarPath, type Pose, type World } from './world';
 
 /** Cars sit just above the road and lot surfaces. */
@@ -105,6 +105,10 @@ export const Cars = memo(function Cars(props: Props) {
         const o = part[i];
         if (!o) return;
         o.position.set(pose.x, CAR_Y, pose.z);
+        if (import.meta.env.DEV && k === 0) {
+          o.userData.packetCarId = car.id;
+          o.userData.packetStatus = pose.status;
+        }
         // Yaw first, then lean around the car's own forward (x) axis and pitch around its z.
         // Wheels stay flat on the road; only the body, glass and lights lean.
         if (k === WHEELS) o.rotation.set(0, pose.heading, 0, 'YXZ');
@@ -112,6 +116,7 @@ export const Cars = memo(function Cars(props: Props) {
       });
       const b = beacons.current[i];
       const driving = pose.status === 'driving';
+      const blocked = pose.status === 'blocked';
       if (b) {
         const d = camera.position.distanceTo(b.position);
         const s = Math.min(18, Math.max(1.4, d / 85));
@@ -119,7 +124,11 @@ export const Cars = memo(function Cars(props: Props) {
         const top = 2.2 + s * 1.2 + bob;
         b.position.set(pose.x, top, pose.z);
         b.rotation.set(0, clock.elapsedTime * 2 + i, 0);
-        b.scale.setScalar(s * (driving ? 1 : 0.7));
+        b.scale.setScalar(s * (driving || blocked ? 1 : 0.7));
+        if ('color' in b)
+          (b.color as { set: (value: string) => void }).set(
+            blocked ? C.danger : CAR_COLORS[car.seq % CAR_COLORS.length]!,
+          );
         const st = stalks.current[i];
         if (st) {
           st.position.set(pose.x, 1, pose.z);
@@ -129,7 +138,11 @@ export const Cars = memo(function Cars(props: Props) {
         if (h) {
           h.position.set(pose.x, CAR_Y + 0.05, pose.z);
           const pulse = 1 + Math.sin(clock.elapsedTime * 5 + i) * 0.12;
-          h.scale.setScalar(driving ? Math.max(1, s * 0.45) * pulse : 0);
+          h.scale.setScalar(driving || blocked ? Math.max(1, s * 0.45) * pulse : 0);
+          if ('color' in h)
+            (h.color as { set: (value: string) => void }).set(
+              blocked ? C.danger : CAR_COLORS[car.seq % CAR_COLORS.length]!,
+            );
         }
       }
     });

@@ -84,8 +84,7 @@ packet plan (from Submit) and playback state.
 
 - **Submit** (`/packetize`) only splits bytes into packets and cars.
 - **Send** (`/route`) runs BFS. The API still accepts failure sets (`disabledNodeIds`,
-  `disabledLinkIds`, frozen contract, demo routes below); the web app no longer offers failure
-  toggles and always sends empty sets, so every send drives the fewest-hop default route.
+  `disabledLinkIds`, frozen contract, demo routes below); the browser sends its current failure sets. Routers and roads can also be toggled during playback; see Live rerouting below.
 
 ### 3. Car count scales with file size; real files go to `POST /api/upload`
 
@@ -253,8 +252,43 @@ delivered | noRoute ──Submit──► packetizing      any ──Reset──
 packetizing | routing ──API error──► error (keeps cars, Retry)
 ```
 
-`noRoute` cannot happen from the web app (it sends no failures) but stays handled for API
-answers. Mid-drive rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
+`noRoute` occurs if a new Send cannot reach the destination. During live rerouting, individual
+stranded groups instead enter `blocked`; restoring connectivity resumes them automatically.
+
+### Live failures, retries and timing
+
+The browser owns failure sets and calls the existing stateless `/route` API from the sender.
+Only **router hardware and router labels** are clickable on the 3D map. Roads are not clickable;
+road failures use the sidebar switches. Town scenery, visit rings and pass effects do not toggle
+routers. Endpoints cannot be disabled. The clock freezes immediately during API requests;
+Reset/new input invalidates pending replies and the user's pause setting is preserved.
+
+This is a simplified **BFS retry model**, not OSPF or a physical network measurement. When a
+connection goes offline, every affected group that has not reached the destination is discarded
+and retried from its original sender slot over a BFS path excluding **all** offline elements.
+This includes unacknowledged groups that already passed the failed router in their current
+attempt. There is no exception allowing an offline starting router to forward. The replacement
+copy at the sender represents retransmission, not the same car physically driving backwards.
+Unchanged groups continue, and confirmed deliveries keep their positions and arrival timestamps.
+The initial 70/30 BFS/wander mix applies only to Send; retries use the BFS route.
+
+If no source-to-destination path exists, affected groups remain at their sender slots with
+`blocked` status. A red **No route — transfer incomplete** notice identifies pending groups;
+the total is not reported as a completed transfer. A Send that starts disconnected also has a
+blocked plan for every group, so map counts and sidebar counts cannot disagree. Restoring a
+connection automatically retries waiting groups. Renderer, footer, totals and table share the
+same `carStatus()` function. Source/destination labels display current waiting/delivered counts;
+blocked groups have red beacons/halos at the sender.
+
+Timing uses **simulation seconds**, not network latency or upload speed. Per-group active travel
+time sums the active portions of its attempts and excludes blocked waits and pre-departure
+queues. Its timer freezes while blocked and after arrival. Overall transfer run time is one
+shared clock, excluding the initial BFS replay, HTTP calls, pauses and periods where every
+group is delivered or blocked. It resumes after restoration. Concurrent group durations are
+not summed. The estimated total is unknown while any group has no route; final completion time
+is shown only once every group is delivered. Playback speed changes wall-clock playback duration,
+not these units. Packet-level transmission, actual OSPF convergence and reassembly processing
+time are not measured.
 
 ## Playback
 
@@ -507,7 +541,7 @@ week.
 
 ## Stretch goals
 
-1. Live mid-drive reroute + packet loss.
+1. Abrupt packet loss/retransmission (live failure retries are implemented above).
 2. Dijkstra by `distanceKm`; BFS vs Dijkstra comparison.
 3. Guided demo mode.
 4. Follow-car camera polish, day/night lighting.
