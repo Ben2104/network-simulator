@@ -1,3 +1,4 @@
+import type { RoutingAlgorithm } from '@netsim/shared';
 import type { Phase } from '../sim/useSimulation';
 
 export type Tone = 'neutral' | 'info' | 'busy' | 'success' | 'danger';
@@ -11,6 +12,7 @@ export interface CarCounts {
 
 export interface CopyInput {
   phase: Phase;
+  algorithm?: RoutingAlgorithm;
   fileLabel: string | null;
   totalBytes: number;
   packetCount: number;
@@ -34,7 +36,11 @@ export const formatBytes = (n: number) => `${n.toLocaleString('en-US')} B`;
 
 export function describePhase(i: CopyInput): PhaseCopy {
   const { cars } = i;
-  const hint = 'Most cars follow the BFS fewest-hop route; a few wander';
+  const weighted = i.algorithm === 'dijkstra';
+  const name = weighted ? 'Dijkstra' : 'BFS';
+  const hint = weighted
+    ? 'All groups follow the lowest-cost route; cost is not measured latency'
+    : 'All groups follow the BFS fewest-hop route';
   switch (i.phase) {
     case 'idle':
       return {
@@ -53,14 +59,14 @@ export function describePhase(i: CopyInput): PhaseCopy {
     case 'routing':
       return {
         tone: 'busy',
-        banner: 'Routing · Asking the route service for the fewest-hop path',
+        banner: `Routing · Asking the route service for the ${weighted ? 'lowest-cost' : 'fewest-hop'} path`,
         footer: 'Routing · Waiting for the route service',
         footerHint: hint,
       };
     case 'searching':
       return {
         tone: 'busy',
-        banner: `Searching · BFS is exploring stations, ${i.visitedCount} of ${i.stationCount} visited`,
+        banner: `Searching · ${name} is exploring stations, ${i.visitedCount} of ${i.stationCount} visited`,
         footer: `Searching · ${i.visitedCount} / ${i.stationCount} stations visited`,
         footerHint: hint,
       };

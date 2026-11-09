@@ -30,8 +30,8 @@ without a discrete GPU).
 
 ## Route
 
-- [ ] Most cars (17 of 24) drive the highlighted BFS route (coast corridor), lead car included;
-      the other 7 wander other roads to Oregon.
+- [ ] All 24 cars follow the highlighted route selected by BFS or Dijkstra. No random detours.
+- [ ] BFS shows hops and no bandwidth/cost editor; Dijkstra additionally shows its cost and Mbps settings.
 - [ ] Each route station lights a column in the route colour once the first car passes it, and
       every passing car fires a gold ring and a beacon flash.
 - [ ] Cars carry a stalk-mounted beacon and, while driving, a pulsing ground halo.

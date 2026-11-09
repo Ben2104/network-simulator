@@ -28,73 +28,36 @@ const bfs: RouteResponse = {
   path,
   linkPath: path.slice(1).map((id, i) => linkBetween(network, path[i]!, id)!.id),
 };
-const isBfs = (nodeIds: readonly string[]) => nodeIds.join() === path.join();
-
 describe('planRun', () => {
-  // 24 cars (LIMITS, 10 MB) x 70 % BFS share, rounded up: 17 on BFS, 7 wandering.
-  it('sends 17 of 24 cars along BFS and lets the other 7 wander', () => {
-    for (let seed = 1; seed <= 20; seed++) {
-      const tl = planRun(network, packets, bfs, pos, rng(seed));
-      expect(tl.plans).toHaveLength(24);
-      const onBfs = tl.plans.filter((p) => isBfs(p.route.nodeIds));
-      expect(onBfs).toHaveLength(17);
-      for (const p of onBfs) expect(p.route.linkIds).toEqual(bfs.linkPath);
-    }
-  });
-
-  it('routes every wandering car client to server over real roads, never via BFS', () => {
-    for (let seed = 1; seed <= 20; seed++) {
-      for (const { route } of planRun(network, packets, bfs, pos, rng(seed)).plans) {
-        if (isBfs(route.nodeIds)) continue;
-        expect(route.nodeIds[0]).toBe(network.clientId);
-        expect(route.nodeIds.at(-1)).toBe(network.serverId);
-        expect(new Set(route.nodeIds).size).toBe(route.nodeIds.length);
-        expect(route.linkIds).toHaveLength(route.nodeIds.length - 1);
-        route.linkIds.forEach((id, i) =>
-          expect(linkBetween(network, route.nodeIds[i]!, route.nodeIds[i + 1]!)?.id).toBe(id),
-        );
-        // At most 2 hops longer than the 9-hop BFS answer.
-        expect(route.linkIds.length).toBeLessThanOrEqual(11);
+  it.each([undefined, 'bfs', 'dijkstra'] as const)(
+    'sends all 24 groups along the returned route for %s',
+    (algorithm) => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const tl = planRun(packets, { ...bfs, algorithm }, pos, rng(seed));
+        expect(tl.plans).toHaveLength(24);
+        for (const p of tl.plans) {
+          expect(p.route.nodeIds).toEqual(bfs.path);
+          expect(p.route.linkIds).toEqual(bfs.linkPath);
+        }
       }
-    }
+    },
+  );
+
+  it('reproduces the same animation for the same seed', () => {
+    expect(planRun(packets, bfs, pos, rng(42))).toEqual(planRun(packets, bfs, pos, rng(42)));
   });
 
-  it('always puts the lead car on BFS but varies which other cars wander', () => {
-    const wanderSets = new Set<string>();
-    for (let seed = 1; seed <= 10; seed++) {
-      const tl = planRun(network, packets, bfs, pos, rng(seed));
-      expect(isBfs(tl.plans[0]!.route.nodeIds)).toBe(true);
-      wanderSets.add(tl.plans.map((p) => (isBfs(p.route.nodeIds) ? 'b' : 'w')).join(''));
-    }
-    expect(wanderSets.size).toBeGreaterThan(1);
-  });
-
-  it('plans the same run for the same seed', () => {
-    expect(planRun(network, packets, bfs, pos, rng(42))).toEqual(
-      planRun(network, packets, bfs, pos, rng(42)),
-    );
-  });
-
-  it('sends every car along BFS when there is no other route', () => {
-    // Keep only the BFS roads: the graph becomes a single line from client to server.
-    const line = { ...network, links: network.links.filter((l) => bfs.linkPath.includes(l.id)) };
-    const tl = planRun(line, packets, bfs, pos, rng(3));
-    expect(tl.plans).toHaveLength(24);
-    for (const p of tl.plans) expect(p.route.nodeIds).toEqual(path);
-  });
-
-  it('still varies departure gaps between cars', () => {
-    const tl = planRun(network, packets, bfs, pos, rng(7));
+  it('varies departure gaps while preserving every group route', () => {
+    const tl = planRun(packets, bfs, pos, rng(7));
     const gaps = tl.plans.slice(1).map((p, i) => p.departAt - tl.plans[i]!.departAt);
     expect(new Set(gaps.map((g) => g.toFixed(3))).size).toBeGreaterThan(1);
-    for (const g of gaps) expect(g).toBeGreaterThan(0);
+    for (const gap of gaps) expect(gap).toBeGreaterThan(0);
   });
 
-  it('plans no driving when BFS found no route', () => {
+  it.each(['bfs', 'dijkstra'] as const)('plans no driving when %s found no route', (algorithm) => {
     const tl = planRun(
-      network,
       packets,
-      { ...bfs, status: 'unreachable', path: [], linkPath: [] },
+      { ...bfs, algorithm, status: 'unreachable', path: [], linkPath: [] },
       pos,
       rng(1),
     );

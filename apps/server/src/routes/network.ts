@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  pathCost,
   NetworkSchema,
   RouteRequestSchema,
   RouteResponseSchema,
@@ -8,6 +9,7 @@ import {
   type RouteResponse,
 } from '@netsim/shared';
 import { findRoute } from '../graph/bfs.js';
+import { findWeightedRoute } from '../graph/dijkstra.js';
 import { HttpError } from '../errors.js';
 
 export interface NetworkRoutesOptions {
@@ -35,30 +37,42 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
     {
       schema: {
         tags: ['network'],
-        summary: 'BFS route from client to server, avoiding disabled nodes and links',
+        summary: 'BFS fewest-hop or Dijkstra lowest-cost route, avoiding disabled connections',
         body: RouteRequestSchema,
         response: { 200: RouteResponseSchema },
       },
     },
     async (req) => {
       const { fromNodeId = network.clientId, disabledNodeIds, disabledLinkIds } = req.body;
+      const { algorithm = 'bfs', linkBandwidthMbps = {} } = req.body;
       const unknown = [
         ...[fromNodeId, ...disabledNodeIds].filter((id) => !nodeIds.has(id)),
-        ...disabledLinkIds.filter((id) => !linkIds.has(id)),
+        ...[...disabledLinkIds, ...Object.keys(linkBandwidthMbps)].filter((id) => !linkIds.has(id)),
       ];
       if (unknown.length > 0) {
         throw new HttpError(400, 'UNKNOWN_ID', `Unknown node or link IDs: ${unknown.join(', ')}`);
       }
 
-      const result = findRoute(network, fromNodeId, network.serverId, {
+      const failures = {
         disabledNodeIds: new Set(disabledNodeIds),
         disabledLinkIds: new Set(disabledLinkIds),
-      });
+      };
+      const result =
+        algorithm === 'dijkstra'
+          ? findWeightedRoute(network, fromNodeId, network.serverId, failures, linkBandwidthMbps)
+          : findRoute(network, fromNodeId, network.serverId, failures);
       return {
         status: result.found ? 'routed' : 'unreachable',
         visitOrder: result.visitOrder,
         path: result.path,
         linkPath: result.linkPath,
+        // Preserve the exact v2 reply for legacy clients and frozen mocks.
+        ...(req.body.algorithm !== undefined || req.body.linkBandwidthMbps !== undefined
+          ? {
+              algorithm,
+              totalCost: result.found ? pathCost(result.linkPath, linkBandwidthMbps) : null,
+            }
+          : {}),
       };
     },
   );

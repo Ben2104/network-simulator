@@ -18,9 +18,10 @@ Full design rationale: [`superpowers/specs/2026-10-19-3d-packet-highway-design.m
 | Car                | packet bundle   | 3D car; ≤ 24 per transfer            |
 
 Flow: **Submit** a file → server splits it into packets → cars appear in the CSULB lot.
-**Send** → BFS searches the network (stations light up in visit order) → chosen route highlights
-→ most cars (70 %) drive that route and the rest wander other roads; each car lights up the
-stations it passes and parks in the Oregon lot.
+**Send** → the selected algorithm searches the network (stations light up in visit order) → the
+chosen route highlights. BFS minimizes hops; Dijkstra minimizes configured link cost. Every group follows the route
+chosen by the selected algorithm.
+Each car lights up stations it passes and parks in the Oregon lot.
 
 ## System overview
 
@@ -42,7 +43,7 @@ stations it passes and parks in the Oregon lot.
 │  GET  /api/health                                                     │
 │  GET  /api/network     ──► graph/topology.ts (lat/lon, distanceKm)    │
 │  POST /api/packetize   ──► graph/packets.ts  (pure)                   │
-│  POST /api/route       ──► graph/bfs.ts      (pure)                   │
+│  POST /api/route       ──► graph/bfs.ts, dijkstra.ts (pure)                   │
 │  errors.ts  uniform { error: { code, message } }                      │
 └───────────────────────────────────────────────────────────────────────┘
             ▲                                         ▲
@@ -55,7 +56,7 @@ stations it passes and parks in the Oregon lot.
 apps/
   server/src/
     app.ts, index.ts, config.ts, errors.ts
-    graph/      topology.ts, bfs.ts, packets.ts — no Fastify imports
+    graph/      topology.ts, bfs.ts, dijkstra.ts, packets.ts — no Fastify imports
     routes/     health.ts, network.ts, packetize.ts
   web/src/
     api/        typed fetch client
@@ -125,9 +126,8 @@ call, and shape. All algorithm tests run without HTTP.
 ### 7. Determinism
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
-same BFS route and same cars, every presentation. The one exception is playback: which cars
-wander off the BFS route, the roads they take, and their departure gaps and speeds are random, so
-traffic differs between sends.
+same route and same cars for the same algorithm/settings, every presentation. Departure gaps
+and cruising speeds vary between sends; every group still follows the chosen route.
 
 ### 8. One pure timeline
 
@@ -263,14 +263,14 @@ road failures use the sidebar switches. Town scenery, visit rings and pass effec
 routers. Endpoints cannot be disabled. The clock freezes immediately during API requests;
 Reset/new input invalidates pending replies and the user's pause setting is preserved.
 
-This is a simplified **BFS retry model**, not OSPF or a physical network measurement. When a
+This is a simplified **routing retry model**, not OSPF or a physical network measurement. When a
 connection goes offline, every affected group that has not reached the destination is discarded
-and retried from its original sender slot over a BFS path excluding **all** offline elements.
+and retried from its original sender slot over a path from the selected algorithm, excluding **all** offline elements.
 This includes unacknowledged groups that already passed the failed router in their current
 attempt. There is no exception allowing an offline starting router to forward. The replacement
 copy at the sender represents retransmission, not the same car physically driving backwards.
 Unchanged groups continue, and confirmed deliveries keep their positions and arrival timestamps.
-The initial 70/30 BFS/wander mix applies only to Send; retries use the BFS route.
+Both initial sends and retries use the selected algorithm’s route for every group.
 
 If no source-to-destination path exists, affected groups remain at their sender slots with
 `blocked` status. A red **No route — transfer incomplete** notice identifies pending groups;
@@ -290,6 +290,41 @@ is shown only once every group is delivered. Playback speed changes wall-clock p
 not these units. Packet-level transmission, actual OSPF convergence and reassembly processing
 time are not measured.
 
+### BFS and configurable Dijkstra routing
+
+The routing selector uses one UI with two explicit modes; editing bandwidth never switches the
+algorithm automatically. BFS remains the default and minimizes hops, ignoring bandwidth.
+Dijkstra minimizes the sum of configured link costs. Each road defaults to **1000 Mbps** and
+can be edited only to **10, 100 or 1000 Mbps** (validated in the browser and API). Cost is
+`1000 / Mbps`, giving costs 100, 10 and 1 respectively. All roads are modeled as bidirectional
+with the same configured bandwidth in each direction. Distance remains geographic display data;
+it is not mixed into the cost. This is an educational metric inspired by bandwidth-based OSPF
+cost, not a full OSPF implementation or a measurement of congestion, latency or throughput.
+
+Routing and bandwidth can be edited in idle/loaded/completed/no-route states, and are locked
+while a transfer is active, blocked or recovering from a live API error. Online/offline controls
+still work during playback. Changes apply to the next Send. Switching algorithms clears the previous route/run while
+keeping the submitted file and stored Dijkstra settings for comparison. BFS hides all bandwidth
+controls and total route cost; Dijkstra shows the Mbps editor and cost. Reset clears the transfer and failures but preserves the
+selected mode/bandwidths for comparison. A separate Reset bandwidths button restores 1000 Mbps.
+Settings are local to this browser session and are sent per request, never stored on the server.
+
+Dijkstra is a pure deterministic algorithm in `apps/server/src/graph/dijkstra.ts`: candidates
+settle by cumulative cost, then hops and code-unit node ID. The fixed graph is small, so the
+implementation uses O(V² + E) scanning. The response trace records settled nodes and cumulative
+costs; the UI calls it **Settled order**, rather than a FIFO queue. Every group follows the returned route in both modes. BFS shows hops only in the route card;
+Dijkstra additionally shows total route cost. The former random alternate-route traffic is disabled.
+Live failure retries use the selected algorithm and the same configured bandwidths. Animation
+speed and travel-time estimation still use the existing simulation clock and geometry; Mbps
+affects route choice, not physical transfer timing or car speed.
+
+The v2 extension is optional and backward compatible: `/api/route` accepts `algorithm` (`bfs`
+or `dijkstra`) and `linkBandwidthMbps` (at most 64 known road IDs mapped to the three allowed
+values). Existing requests keep the exact four-field BFS response. Requests explicitly supplying
+routing settings also receive `algorithm` and `totalCost` (null if unreachable); Dijkstra trace
+steps add optional `cost`. Unknown road IDs, invalid keys, unsupported modes and invalid Mbps
+are rejected. Deploy the extended API before a frontend that sends the new optional fields.
+
 ## Playback
 
 `sim/timeline.ts` is pure: it turns cars and routes into departure and arrival times at a
@@ -304,13 +339,10 @@ simulation time `t`, using distances from the shared projection.
 - **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
   `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
   `packetizing` state is instantaneous and never shown.
-- **Most cars drive the BFS route** (`sim/plan.ts`): `BFS_SHARE = 0.7` of the cars, rounded up
-  (17 of 24), take the server's `path` / `linkPath`, the fewest-hop route a real router would
-  forward on, so the search has a purpose. The lead car is always one of them. The rest wander:
-  each picks another client → server route at most `ROUTE_SLACK` (2) hops longer
-  (`sim/routes.ts`), weighted toward fewer hops and rarely shared roads. If no other route exists,
-  every car takes BFS. An unreachable answer plans no cars. Randomness is injected (`rng`), so
-  tests pin every choice.
+- **Every group follows the chosen route** (`sim/plan.ts`): BFS uses the returned fewest-hop
+  path; Dijkstra uses the returned minimum-cost path. No groups are randomly assigned alternate
+  routes. This keeps the map animation consistent with the route card and algorithm comparison.
+  An unreachable answer plans no driving; failed groups remain at the sender.
 - **Natural traffic.** Departure gaps vary (0.55–1.45 × `CAR_STAGGER_SEC`) and each car cruises
   at its own speed (±12 %). Speeds are handed out fastest first, so no car drives through a
   slower one on the shared road out of the CSULB lot. Without an `rng` the timeline is fully
@@ -513,7 +545,7 @@ Live failure tests wait for the route response before checking the rendered upda
 | ---------- | ------------------------- | --------------------------------------------------------------------- |
 | Algorithms | Vitest                    | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
 | API        | Vitest + `inject()`       | Endpoints, validation, error codes                                    |
-| Sim        | Vitest                    | Reducer transitions, 70/30 BFS/wander car plans, timeline ordering    |
+| Sim        | Vitest                    | Reducer transitions, single-route group plans, timeline ordering      |
 | E2E        | Playwright (CI job `e2e`) | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
 | 3D         | Manual checklist + smoke  | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 
@@ -549,6 +581,6 @@ week.
 ## Stretch goals
 
 1. Abrupt packet loss/retransmission (live failure retries are implemented above).
-2. Dijkstra by `distanceKm`; BFS vs Dijkstra comparison.
+2. Distance/latency routing metrics (bandwidth-cost Dijkstra and BFS comparison are implemented).
 3. Guided demo mode.
 4. Follow-car camera polish, day/night lighting.

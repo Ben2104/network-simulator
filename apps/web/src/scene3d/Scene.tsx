@@ -18,6 +18,8 @@ const NO_PASSES: readonly number[] = [];
 
 export interface SceneProps {
   network: Network;
+  previewRoadId: string | null;
+  previewNodeId: string | null;
   disabledNodeIds: ReadonlySet<string>;
   disabledLinkIds: ReadonlySet<string>;
   onToggleNode: (id: string) => void;
@@ -42,6 +44,7 @@ export interface SceneProps {
 export const Scene = memo(function Scene(props: SceneProps) {
   const { network, route, timeline, clockRef, phase } = props;
   const world = useMemo(() => buildWorld(network), [network]);
+  const previewNodePos = props.previewNodeId ? world.pos.get(props.previewNodeId) : null;
   const lots = useMemo(() => [world.client, world.server], [world]);
   const labelEls = useRef<LabelEls>(new Map());
   const tipEl = useRef<HTMLDivElement>(null);
@@ -131,7 +134,11 @@ export const Scene = memo(function Scene(props: SceneProps) {
           id: n.id,
           text: state === 'offline' ? `${n.label} · Offline` : n.label,
           sub:
-            phase === 'searching' && v && state === 'visited' ? `BFS depth ${v.depth}` : undefined,
+            phase === 'searching' && v && state === 'visited'
+              ? route?.algorithm === 'dijkstra'
+                ? `Settled · cost ${route.visitOrder.find((step) => step.nodeId === n.id)?.cost?.toFixed(2) ?? '—'}`
+                : `BFS depth ${v.depth}`
+              : undefined,
           x: p.x,
           y: 7,
           z: p.z,
@@ -139,7 +146,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
           tone: state,
         };
       }),
-    [network, world, stationState, visit, phase, carCount, props.counts],
+    [network, world, stationState, visit, phase, carCount, props.counts, route],
   );
 
   const overview = useMemo(
@@ -175,8 +182,37 @@ export const Scene = memo(function Scene(props: SceneProps) {
 
         <Ground world={world} />
         {network.links.map((l) => (
-          <Road key={l.id} curve={world.roads.get(l.id)!} state={roadState(l.id)} />
+          <Road
+            key={l.id}
+            curve={world.roads.get(l.id)!}
+            state={roadState(l.id)}
+            previewed={props.previewRoadId === l.id}
+            id={l.id}
+          />
         ))}
+        {previewNodePos && (
+          <group
+            position={[previewNodePos.x, 0.4, previewNodePos.z]}
+            userData={{ previewNodeId: props.previewNodeId }}
+          >
+            <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={10}>
+              <ringGeometry args={[7, 13, 64]} />
+              <meshBasicMaterial color="#ffffff" depthTest={false} depthWrite={false} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={11}>
+              <ringGeometry args={[8, 12, 64]} />
+              <meshBasicMaterial
+                color={
+                  props.previewNodeId && props.disabledNodeIds.has(props.previewNodeId)
+                    ? C.danger
+                    : C.explore
+                }
+                depthTest={false}
+                depthWrite={false}
+              />
+            </mesh>
+          </group>
+        )}
         {network.nodes
           .filter((n) => n.kind === 'router')
           .map((n) => (

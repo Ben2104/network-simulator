@@ -9,6 +9,7 @@ import { useSimulation } from './sim/useSimulation';
 import { Banner, CameraControls, Footer, Header, Legend } from './ui/Chrome';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { countCars, describePhase } from './ui/copy';
+import { RoutingControls } from './ui/RoutingControls';
 import { LiveNetwork } from './ui/LiveNetwork';
 import { TransferTiming } from './ui/TransferTiming';
 import { RouteCard, SendPlayback, YourFile } from './ui/Sidebar';
@@ -36,6 +37,10 @@ export function App() {
   /** Why the 3D map cannot show (no WebGL, or the scene crashed); null when it can. */
   const [no3d, setNo3d] = useState<string | null>(() => (webgl ? null : NO_WEBGL));
   const [cameraMode, setCameraMode] = useState<CameraMode>('auto');
+  const [previewNodeId, setPreviewNodeId] = useState<string | null>(null);
+  const previewNode = network?.nodes.find((n) => n.id === previewNodeId);
+  const [previewRoadId, setPreviewRoadId] = useState<string | null>(null);
+  const previewRoad = network?.links.find((l) => l.id === previewRoadId);
   const rigRef = useRef<RigApi | null>(null);
   const on3dError = (message: string) =>
     setNo3d(`The 3D map stopped (${message}). Reload the page to try again.`);
@@ -69,6 +74,7 @@ export function App() {
 
   const sim = useSimulation(network);
   const { phase, route, upload } = sim;
+  const activeAlgorithm = route?.algorithm ?? sim.algorithm;
 
   const showPath = phase === 'driving' || phase === 'delivered' || phase === 'blocked';
   const pathLinkIds = useMemo(
@@ -118,6 +124,7 @@ export function App() {
   const carTotal = upload?.packets.cars.length ?? 0;
   const copy = describePhase({
     phase: loadError ? 'error' : phase,
+    algorithm: activeAlgorithm,
     fileLabel: upload?.label ?? null,
     totalBytes: upload?.packets.totalBytes ?? 0,
     packetCount: upload?.packets.packetCount ?? 0,
@@ -183,6 +190,8 @@ export function App() {
                   <Suspense fallback={<LoadingScreen mapReady={false} serverReady attempt={1} />}>
                     <Scene
                       network={network}
+                      previewRoadId={previewRoadId}
+                      previewNodeId={previewNodeId}
                       disabledNodeIds={sim.disabledNodeIds}
                       disabledLinkIds={sim.disabledLinkIds}
                       onToggleNode={(id) => sim.toggleFailure('node', id)}
@@ -207,7 +216,26 @@ export function App() {
                 </SceneBoundary>
               </div>
               <CameraControls mode={cameraMode} onMode={setCameraMode} rigRef={rigRef} />
-              <Legend />
+              <Legend algorithm={activeAlgorithm} />
+              {previewNode && (
+                <div className="road-map-preview" role="status" aria-label="Highlighted router">
+                  <strong>{previewNode.label}</strong>
+                  <span>
+                    {sim.disabledNodeIds.has(previewNode.id) ? 'Offline router' : 'Router preview'}
+                  </span>
+                </div>
+              )}
+              {previewRoad && !previewNode && (
+                <div className="road-map-preview" role="status" aria-label="Highlighted road">
+                  <strong>
+                    {network.nodes.find((n) => n.id === previewRoad.source)?.label} –{' '}
+                    {network.nodes.find((n) => n.id === previewRoad.target)?.label}
+                  </strong>
+                  <span>
+                    {sim.disabledLinkIds.has(previewRoad.id) ? 'Offline road' : 'Road preview'}
+                  </span>
+                </div>
+              )}
             </>
           ) : network && no3d ? (
             <p className="canvas-note" role="alert">
@@ -219,6 +247,13 @@ export function App() {
         </main>
         {network && (
           <aside className="sidebar">
+            <RoutingControls
+              algorithm={sim.algorithm}
+              locked={!sim.canConfigure}
+              onChange={sim.selectAlgorithm}
+              onResetBandwidths={sim.resetBandwidths}
+              customized={Object.keys(sim.linkBandwidthMbps).length}
+            />
             <YourFile
               phase={phase}
               upload={upload}
@@ -239,7 +274,14 @@ export function App() {
               onSpeed={sim.setSpeed}
             />
             <LiveNetwork
+              onRoadPreview={setPreviewRoadId}
+              onNodePreview={setPreviewNodeId}
               network={network}
+              algorithm={sim.algorithm}
+              bandwidths={sim.linkBandwidthMbps}
+              settingsLocked={!sim.canConfigure}
+              onBandwidth={sim.configureBandwidth}
+              routeLinks={route?.linkPath ?? []}
               nodes={sim.disabledNodeIds}
               links={sim.disabledLinkIds}
               busy={sim.rerouting || phase === 'routing'}
@@ -254,6 +296,7 @@ export function App() {
               paused={sim.paused || sim.rerouting}
             />
             <RouteCard
+              algorithm={sim.algorithm}
               phase={phase}
               network={network}
               route={route}

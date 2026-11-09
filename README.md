@@ -1,8 +1,8 @@
 # Packet Highway — Network Route Simulator
 
 Submit a file at the **CSULB parking lot**. It is split into packets, shown as 3D **cars**.
-Press **Send**: breadth-first search explores a West Coast network of **stations** (routers),
-then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch affected unfinished groups retry from the sender using BFS. Restore connections to release blocked groups. The Transfer timing card shows simulated group and total completion times.
+Choose **BFS** (fewest hops) or **Dijkstra** (lowest configured cost), then press **Send** to search the West Coast network of **stations** (routers),
+then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch affected unfinished groups retry from the sender using the selected algorithm. Restore connections to release blocked groups. The Transfer timing card shows simulated group and total completion times.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
 > illustrative, not real ISP topology. The app does not inspect, control, or route real network
@@ -19,6 +19,13 @@ The API runs on Render's free tier, so the first request after idle can take abo
 
 **Stack:** React + TypeScript (Vite) · Three.js via React Three Fiber · Fastify + TypeScript ·
 shared TypeBox contract · npm workspaces · Render (API) · Vercel (web).
+
+## Routing comparison
+
+Select **Dijkstra**, then use **Live network → Roads → Edit** to choose **10 / 100 / 1000 Mbps**.
+Cost is `1000 / Mbps`. BFS ignores these costs; Dijkstra minimizes their total. Edit between
+transfers and press Send again to compare routes. Both algorithms send every group along their selected route. BFS hides bandwidth/cost controls;
+Dijkstra shows them. Switching modes preserves stored Dijkstra bandwidth settings. These settings affect path selection, not animation speed or measured network latency.
 
 ## Quick start
 
@@ -76,7 +83,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 
 - **Two steps.** Upload (`/upload`, ≤ 10 MB) or a preset splits the file into cars by size:
   10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS,
-  then search animation, then most cars (70 %) drive the BFS route and the rest wander.
+  then search animation, then every group follows the route selected by BFS or Dijkstra.
 - **Stateless API.** Server holds one fixed topology. Browser holds cars and playback state.
   Survives Render restarts; concurrent users do not collide.
 - **BFS = fewest hops,** not shortest distance. Topology is designed so fewest-hop routes look
@@ -84,7 +91,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
-- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback 70 % of cars (17 of 24) drive the BFS route; the rest each take a random other route up to two hops longer (some take the desert corridor). Cars leave at varied gaps and speeds.
+- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. Every group follows the route returned by the selected algorithm. Cars leave at varied gaps and speeds.
 - **3D.** React Three Fiber scene driven by one pure timeline; without WebGL the map explains why
   and the sidebar still works.
 
