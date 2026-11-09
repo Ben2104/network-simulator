@@ -10,7 +10,6 @@ const base: CopyInput = {
   visitedCount: 19,
   stationCount: 19,
   cars: { total: 24, atSender: 0, onRoad: 0, atDestination: 24 },
-  offlineStationLabels: [],
   paused: false,
 };
 
@@ -19,12 +18,6 @@ describe('describePhase', () => {
     const c = describePhase(base);
     expect(c.banner).toBe('Delivered via 9 hops');
     expect(c.footer).toBe('Delivered · 24 / 24 cars at US-West Data Center, Oregon');
-  });
-
-  it('names offline stations the route avoided', () => {
-    expect(describePhase({ ...base, offlineStationLabels: ['Oakland'] }).banner).toBe(
-      'Delivered via 9 hops, avoiding offline Oakland',
-    );
   });
 
   it('formats the loaded banner with grouped numbers', () => {

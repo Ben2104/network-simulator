@@ -76,16 +76,16 @@ See **[docs/architecture.md](docs/architecture.md)** for diagrams, design decisi
 contract, error codes, limits, config, and deployment details. Summary:
 
 - **Two steps.** Upload (`/upload`, ≤ 10 MB) or a preset splits the file into cars by size:
-  10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS
-  against current failures, then search animation, then cars drive.
-- **Stateless API.** Server holds one fixed topology. Browser holds cars and disabled
-  stations/roads. Survives Render restarts; concurrent users do not collide.
+  10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS,
+  then search animation, then most cars (70 %) drive the BFS route and the rest wander.
+- **Stateless API.** Server holds one fixed topology. Browser holds cars and playback state.
+  Survives Render restarts; concurrent users do not collide.
 - **BFS = fewest hops,** not shortest distance. Topology is designed so fewest-hop routes look
   sensible on the map.
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in
   both apps.
 - **Pure algorithms.** `apps/server/src/graph/` has no HTTP code; tested directly.
-- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback each car picks a random route (BFS length or up to two hops longer, so some take the desert corridor) and cars leave at varied gaps and speeds.
+- **Deterministic.** Fixed topology, sorted neighbor order. Same input → same BFS route, every demo. In playback 70 % of cars (17 of 24) drive the BFS route; the rest each take a random other route up to two hops longer (some take the desert corridor). Cars leave at varied gaps and speeds.
 - **3D.** React Three Fiber scene driven by one pure timeline; without WebGL the map explains why
   and the sidebar still works.
 

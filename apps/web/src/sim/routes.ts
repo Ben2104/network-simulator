@@ -1,9 +1,5 @@
 import type { Network } from '@netsim/shared';
-
-export interface Route {
-  nodeIds: string[];
-  linkIds: string[];
-}
+import type { Route } from './timeline';
 
 /** Hard stop for the search; the 27-station graph has ~40 routes within two extra hops. */
 const MAX_ROUTES = 256;
@@ -18,24 +14,17 @@ export const ROUTE_SLACK = 2;
 const SLACK_DECAY = 0.55;
 
 /**
- * Every simple client → server path with at most `maxHops` hops, skipping disabled stations and
- * roads. Fewest hops first, then by ID, so output is deterministic. `maxHops` is the BFS hop count
- * plus a small slack: cars then spread over plausible alternatives instead of absurd detours.
+ * Every simple client → server path with at most `maxHops` hops. Fewest hops first, then by ID,
+ * so output is deterministic. `maxHops` is the BFS hop count plus a small slack: wandering cars
+ * then spread over plausible alternatives instead of absurd detours.
  * Branches that cannot reach the server within the hop budget are pruned (hop distance to the
  * server is precomputed), so the cap only guards against pathological graphs.
  */
-export function enumerateRoutes(
-  network: Network,
-  disabledNodeIds: ReadonlySet<string>,
-  disabledLinkIds: ReadonlySet<string>,
-  maxHops: number,
-): Route[] {
+export function enumerateRoutes(network: Network, maxHops: number): Route[] {
   const adj = new Map<string, { to: string; linkId: string }[]>();
   const edge = (from: string, to: string, linkId: string) =>
     (adj.get(from) ?? adj.set(from, []).get(from)!).push({ to, linkId });
   for (const l of network.links) {
-    if (disabledLinkIds.has(l.id)) continue;
-    if (disabledNodeIds.has(l.source) || disabledNodeIds.has(l.target)) continue;
     edge(l.source, l.target, l.id);
     edge(l.target, l.source, l.id);
   }

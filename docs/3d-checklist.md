@@ -28,14 +28,13 @@ without a discrete GPU).
 - [ ] Pause freezes cars and rings; Resume continues; 0.25× / 2× change speed smoothly.
 - [ ] Switching to 2D view mid-drive and back shows the same phase and car counts.
 
-## Failures
+## Route
 
-- [ ] Clicking a station or road (when unlocked) breaks it: red colour plus a spinning cross
-      (station) or cones and cross (road), and a "✕ Offline" label.
-- [ ] Break Oakland, Send: route goes inland via Sacramento – Reno – Klamath Falls.
-- [ ] Break Sacramento and Redding: cars take the east corridor (Barstow, Las Vegas, Boise).
-- [ ] Also break Barstow: search ends with "No route available"; cars stay parked.
-- [ ] Clicks are ignored while routing, searching and driving; an orbit drag never toggles.
+- [ ] Most cars (17 of 24) drive the highlighted BFS route (coast corridor), lead car included;
+      the other 7 wander other roads to Oregon.
+- [ ] Each route station lights a column in the route colour once the first car passes it, and
+      every passing car fires a gold ring and a beacon flash.
+- [ ] Cars carry a stalk-mounted beacon and, while driving, a pulsing ground halo.
 
 ## Camera
 

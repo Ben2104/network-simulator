@@ -36,12 +36,6 @@ interface Run {
   timeline: Timeline;
 }
 
-const toggle = (set: ReadonlySet<string>, id: string) => {
-  const next = new Set(set);
-  if (!next.delete(id)) next.add(id);
-  return next;
-};
-
 export function useSimulation(network: Network | null) {
   // Timing uses true projected distances, the same geography the 3D scene draws.
   const pos = useMemo(
@@ -50,8 +44,6 @@ export function useSimulation(network: Network | null) {
   );
   const [upload, setUpload] = useState<Upload | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
-  const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
-  const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
   const [routing, setRouting] = useState(false);
   const [run, setRun] = useState<Run | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -160,20 +152,9 @@ export function useSimulation(network: Network | null) {
     setClock(0);
     setPaused(false);
     try {
-      const route = await api.route({
-        disabledNodeIds: [...disabledNodeIds],
-        disabledLinkIds: [...disabledLinkIds],
-      });
+      const route = await api.route({ disabledNodeIds: [], disabledLinkIds: [] });
       if (id !== requestId.current) return;
-      const timeline = planRun(
-        network,
-        upload.packets,
-        route,
-        pos,
-        disabledNodeIds,
-        disabledLinkIds,
-        Math.random,
-      );
+      const timeline = planRun(network, upload.packets, route, pos, Math.random);
       setRun({ route, timeline });
     } catch (e) {
       if (id !== requestId.current) return;
@@ -181,9 +162,9 @@ export function useSimulation(network: Network | null) {
     } finally {
       if (id === requestId.current) setRouting(false);
     }
-  }, [network, pos, upload, disabledNodeIds, disabledLinkIds]);
+  }, [network, pos, upload]);
 
-  /** Back to the file input, keeping any broken stations and roads. */
+  /** Back to the file input. */
   const changeFile = useCallback(() => {
     clearRun();
     setUpload(null);
@@ -194,38 +175,12 @@ export function useSimulation(network: Network | null) {
     clearRun();
     setUpload(null);
     setInputError(null);
-    setDisabledNodeIds(new Set());
-    setDisabledLinkIds(new Set());
   }, [clearRun]);
-
-  const canToggleFailures =
-    phase === 'idle' || phase === 'loaded' || phase === 'delivered' || phase === 'noRoute';
-
-  // A route computed on the old network would be misleading, so a failure change clears the run.
-  const toggleNode = useCallback(
-    (id: string) => {
-      if (!canToggleFailures) return;
-      clearRun();
-      setDisabledNodeIds((s) => toggle(s, id));
-    },
-    [canToggleFailures, clearRun],
-  );
-  const toggleLink = useCallback(
-    (id: string) => {
-      if (!canToggleFailures) return;
-      clearRun();
-      setDisabledLinkIds((s) => toggle(s, id));
-    },
-    [canToggleFailures, clearRun],
-  );
 
   return {
     phase,
     upload,
     inputError,
-    disabledNodeIds,
-    disabledLinkIds,
-    canToggleFailures,
     route: run?.route ?? null,
     timeline: run?.timeline ?? null,
     /**
@@ -246,7 +201,5 @@ export function useSimulation(network: Network | null) {
     changeFile,
     send,
     reset,
-    toggleNode,
-    toggleLink,
   };
 }

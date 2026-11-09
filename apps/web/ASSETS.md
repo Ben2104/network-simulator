@@ -15,7 +15,7 @@ outline.
 ## 3D models
 
 All 3D models (cars, stations, towns, parking lots, campus building, data center, trees, shrubs,
-cacti, rocks, peaks, lakes, clouds)
+cacti, rocks, peaks, lakes)
 are procedural three.js primitives written in `src/scene3d/`; there are no model files.
 
 Swapping in the Kenney Car Kit / City Kit (CC0) is tracked in #22. Model components keep their

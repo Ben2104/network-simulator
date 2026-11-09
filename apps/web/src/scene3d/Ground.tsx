@@ -1,6 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, type RefObject } from 'react';
 import { Line } from '@react-three/drei';
-import { useFrame } from '@react-three/fiber';
 import {
   CanvasTexture,
   Color,
@@ -9,14 +8,11 @@ import {
   DodecahedronGeometry,
   ExtrudeGeometry,
   IcosahedronGeometry,
-  MeshStandardMaterial,
   Object3D,
   SRGBColorSpace,
   Shape,
   type BufferGeometry,
-  type Group,
   type InstancedMesh,
-  type Mesh,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { C } from './palette';
@@ -36,7 +32,7 @@ import {
   type PropKind,
   type Ring,
 } from './scenery';
-import { rng, toWorld, type World } from './world';
+import { toWorld, type World } from './world';
 
 const LAND_DEPTH = 3;
 
@@ -343,82 +339,10 @@ function Vegetation({ props }: { props: Prop[] }) {
   );
 }
 
-const CLOUDS = 16;
-
-/**
- * Soft low-poly clouds drifting east. They fade out when the camera is high, so they never hide
- * the network in the overview, and they cast no shadows.
- */
-function Clouds() {
-  const group = useRef<Group>(null);
-  const material = useMemo(
-    () =>
-      new MeshStandardMaterial({
-        color: '#ffffff',
-        transparent: true,
-        opacity: 0.7,
-        depthWrite: false,
-        flatShading: true,
-      }),
-    [],
-  );
-  const { geometry, clouds, span } = useMemo(() => {
-    const rand = rng(77);
-    const puff = (x: number, y: number, z: number, r: number) =>
-      new IcosahedronGeometry(r, 1).scale(1, 0.6, 1).translate(x, y, z);
-    const geometry = mergeGeometries([
-      puff(0, 0, 0, 7),
-      puff(6, -0.8, 1.5, 5),
-      puff(-6, -1, -1, 5.5),
-      puff(2, 1.5, -3, 4.5),
-      puff(-2.5, 0.5, 3.5, 4),
-    ])!;
-    const sw = toWorld(LAND_BOUNDS.minLat, LAND_BOUNDS.minLon);
-    const ne = toWorld(LAND_BOUNDS.maxLat, LAND_BOUNDS.maxLon);
-    const clouds = Array.from({ length: CLOUDS }, () => ({
-      x: sw.x + rand() * (ne.x - sw.x),
-      y: 70 + rand() * 30,
-      z: ne.z + rand() * (sw.z - ne.z),
-      s: 0.8 + rand() * 1.1,
-      speed: 2 + rand() * 3,
-    }));
-    return { geometry, clouds, span: { x0: sw.x - 60, x1: ne.x + 60 } };
-  }, []);
-
-  useFrame(({ camera }, delta) => {
-    const g = group.current;
-    if (!g) return;
-    g.children.forEach((c, i) => {
-      c.position.x += clouds[i]!.speed * Math.min(delta, 0.1);
-      if (c.position.x > span.x1) c.position.x = span.x0;
-    });
-    // All clouds share one material; reach it through the scene graph, not the memo value.
-    const fade = Math.min(1, Math.max(0, (camera.position.y - 250) / 900));
-    const first = g.children[0] as Mesh | undefined;
-    if (first) (first.material as MeshStandardMaterial).opacity = 0.75 - fade * 0.5;
-  });
-
-  return (
-    <group ref={group}>
-      {clouds.map((c, i) => (
-        <mesh
-          key={i}
-          geometry={geometry}
-          material={material}
-          position={[c.x, c.y, c.z]}
-          scale={c.s}
-          rotation-y={i}
-          renderOrder={2}
-        />
-      ))}
-    </group>
-  );
-}
-
 /**
  * West Coast land from Natural Earth (public domain) painted with biomes (forest, Central Valley
- * farmland, Mojave, Great Basin, high desert, red rock), plus ocean, ranges, lakes, vegetation
- * and clouds. Placement lives in `scenery.ts` (pure, unit-tested).
+ * farmland, Mojave, Great Basin, high desert, red rock), plus ocean, ranges, lakes and vegetation.
+ * Placement lives in `scenery.ts` (pure, unit-tested).
  */
 export function Ground({ world }: { world: World }) {
   const map = useLandTexture();
@@ -438,7 +362,6 @@ export function Ground({ world }: { world: World }) {
       <Lakes lakes={lakes} />
       <Mountains peaks={peaks} />
       <Vegetation props={props} />
-      <Clouds />
     </group>
   );
 }

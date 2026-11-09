@@ -41,15 +41,11 @@ export function Header() {
         <div className="help" role="note">
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
-            cars. Send runs a breadth-first search for the fewest-hop route (highlighted). Like real
-            traffic, each car then picks its own route at random, usually a fewest-hop one but
-            sometimes a slightly longer road such as the desert corridor, and drives from the CSULB
-            lot to the Oregon data center.
+            cars. Send runs a breadth-first search for the fewest-hop route (highlighted). Most cars
+            drive that route from the CSULB lot to the Oregon data center; a few wander other roads.
+            Each station lights up as a car reaches it.
           </p>
-          <p>
-            Click a station or road to break it, then Send again. Use the speed control to slow the
-            cars down for a presentation.
-          </p>
+          <p>Use the speed control to slow the cars down for a presentation.</p>
           <p>
             Drag to orbit, right-drag to pan, scroll to zoom. Auto camera follows the action; Follow
             lead car chases the first car and lets go as soon as you drag.
@@ -101,9 +97,6 @@ export function Legend() {
         </li>
         <li>
           <i className="key visited" /> Visited by BFS
-        </li>
-        <li>
-          <i className="key broken" /> Broken / offline
         </li>
       </ul>
     </div>
@@ -162,7 +155,7 @@ export function CameraControls(props: {
         <span>N</span>
         <i />
       </div>
-      <p className="hint3d">Drag to orbit · scroll to zoom · click a station or road to break it</p>
+      <p className="hint3d">Drag to orbit · right-drag to pan · scroll to zoom</p>
     </>
   );
 }

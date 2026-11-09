@@ -31,43 +31,34 @@ const network: Network = {
   clientId: 'c',
   serverId: 's',
 };
-const none = new Set<string>();
 
 describe('enumerateRoutes', () => {
   it('returns shortest routes first and respects the hop bound', () => {
-    expect(enumerateRoutes(network, none, none, 2).map((r) => r.nodeIds)).toEqual([
+    expect(enumerateRoutes(network, 2).map((r) => r.nodeIds)).toEqual([
       ['c', 'a', 's'],
       ['c', 'b', 's'],
     ]);
-    const withSlack = enumerateRoutes(network, none, none, 3).map((r) => r.nodeIds.join('>'));
+    const withSlack = enumerateRoutes(network, 3).map((r) => r.nodeIds.join('>'));
     expect(withSlack).toEqual(['c>a>s', 'c>b>s', 'c>a>b>s', 'c>b>a>s']);
   });
 
   it('reports link IDs that match the hop sequence', () => {
-    const [first] = enumerateRoutes(network, none, none, 2);
+    const [first] = enumerateRoutes(network, 2);
     expect(first?.linkIds).toEqual(['c--a', 'a--s']);
   });
 
-  it('skips disabled stations and roads', () => {
-    const noA = enumerateRoutes(network, new Set(['a']), none, 3).map((r) => r.nodeIds.join('>'));
-    expect(noA).toEqual(['c>b>s']);
-    const noBS = enumerateRoutes(network, none, new Set(['b--s']), 3).map((r) =>
-      r.nodeIds.join('>'),
-    );
-    expect(noBS).toEqual(['c>a>s', 'c>b>a>s']);
-  });
-
   it('never truncates: every route within the hop bound is found', () => {
-    expect(enumerateRoutes(network, none, none, 4)).toHaveLength(4);
+    expect(enumerateRoutes(network, 4)).toHaveLength(4);
   });
 
   it('returns nothing when the server is unreachable', () => {
-    expect(enumerateRoutes(network, new Set(['a', 'b']), none, 5)).toEqual([]);
+    const cut = { ...network, links: network.links.filter((l) => l.target !== 's') };
+    expect(enumerateRoutes(cut, 5)).toEqual([]);
   });
 });
 
 describe('assignRoutes', () => {
-  const routes = enumerateRoutes(network, none, none, 2);
+  const routes = enumerateRoutes(network, 2);
 
   it('gives every car a valid route, picked by the rng', () => {
     const seq = [0, 0.99, 0.5, 0.2];
@@ -98,7 +89,7 @@ describe('assignRoutes', () => {
 
 describe('routeWeights', () => {
   it('prefers fewer hops', () => {
-    const routes = enumerateRoutes(network, none, none, 3);
+    const routes = enumerateRoutes(network, 3);
     const w = routeWeights(routes);
     // c>a>s and c>b>s (2 hops) outweigh c>a>b>s and c>b>a>s (3 hops).
     expect(Math.min(w[0]!, w[1]!)).toBeGreaterThan(Math.max(w[2]!, w[3]!));

@@ -5,6 +5,7 @@ import {
   BoxGeometry,
   BufferAttribute,
   CylinderGeometry,
+  RingGeometry,
   OctahedronGeometry,
   Vector3,
   type BufferGeometry,
@@ -58,7 +59,10 @@ function carGeometries() {
     ...[-0.38, 0.38].map((z) => tinted(box(0.06, 0.12, 0.22, -1.21, 0.52, z), 0xef4444)),
   ])!;
   const beacon = new OctahedronGeometry(0.42, 0);
-  return { body, glass, wheels, lights, beacon };
+  // Pin stalk (unit height, base at y = 0) tying the beacon to its car, and a flat ground halo.
+  const stalk = new CylinderGeometry(0.05, 0.05, 1, 6).translate(0, 0.5, 0);
+  const halo = new RingGeometry(1.5, 2.4, 32).rotateX(-Math.PI / 2);
+  return { body, glass, wheels, lights, beacon, stalk, halo };
 }
 
 interface Props {
@@ -78,14 +82,16 @@ type Ref = Object3D | null;
 /**
  * Up to 24 packet cars. Each part (body, glass, wheels, lights, beacon) is one drei `<Instances>`
  * draw call. `useFrame` reads the sim clock and moves instances through refs; no React state is set
- * per frame. Beacons float above each car and grow with camera distance so cars stay visible in
- * the overview.
+ * per frame. Beacons float above each car on a stalk and grow with camera distance so cars stay
+ * visible in the overview; driving cars also get a pulsing ground halo in their colour.
  */
 export const Cars = memo(function Cars(props: Props) {
   const { cars, paths, world, clockRef, hover, onHover, tipEl } = props;
   const geo = useMemo(carGeometries, []);
   const parts = useRef<Ref[][]>([[], [], [], []]);
   const beacons = useRef<Ref[]>([]);
+  const stalks = useRef<Ref[]>([]);
+  const halos = useRef<Ref[]>([]);
   const poses = useRef<Pose[]>([]);
   const v = useMemo(() => new Vector3(), []);
 
@@ -105,13 +111,26 @@ export const Cars = memo(function Cars(props: Props) {
         else o.rotation.set(pose.roll, pose.heading, pose.pitch, 'YXZ');
       });
       const b = beacons.current[i];
+      const driving = pose.status === 'driving';
       if (b) {
         const d = camera.position.distanceTo(b.position);
-        const s = Math.min(14, Math.max(1, d / 110));
+        const s = Math.min(18, Math.max(1.4, d / 85));
         const bob = Math.sin(clock.elapsedTime * 3 + i) * 0.15 * s;
-        b.position.set(pose.x, 2.2 + s * 0.9 + bob, pose.z);
+        const top = 2.2 + s * 1.2 + bob;
+        b.position.set(pose.x, top, pose.z);
         b.rotation.set(0, clock.elapsedTime * 2 + i, 0);
-        b.scale.setScalar(s * (pose.status === 'driving' ? 1 : 0.7));
+        b.scale.setScalar(s * (driving ? 1 : 0.7));
+        const st = stalks.current[i];
+        if (st) {
+          st.position.set(pose.x, 1, pose.z);
+          st.scale.set(driving ? s : 0, Math.max(0, top - 1), driving ? s : 0);
+        }
+        const h = halos.current[i];
+        if (h) {
+          h.position.set(pose.x, CAR_Y + 0.05, pose.z);
+          const pulse = 1 + Math.sin(clock.elapsedTime * 5 + i) * 0.12;
+          h.scale.setScalar(driving ? Math.max(1, s * 0.45) * pulse : 0);
+        }
       }
     });
     const tip = tipEl.current;
@@ -164,6 +183,31 @@ export const Cars = memo(function Cars(props: Props) {
         <primitive object={geo.lights} attach="geometry" />
         <meshBasicMaterial vertexColors toneMapped={false} />
         {instances(3)}
+      </Instances>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
+        <primitive object={geo.stalk} attach="geometry" />
+        <meshBasicMaterial color="#ffffff" transparent opacity={0.7} toneMapped={false} />
+        {cars.map((car, i) => (
+          <Instance
+            key={car.id}
+            ref={(el: Ref) => {
+              stalks.current[i] = el;
+            }}
+          />
+        ))}
+      </Instances>
+      <Instances limit={24} range={cars.length} frustumCulled={false}>
+        <primitive object={geo.halo} attach="geometry" />
+        <meshBasicMaterial transparent opacity={0.8} depthWrite={false} toneMapped={false} />
+        {cars.map((car, i) => (
+          <Instance
+            key={car.id}
+            color={color(car.seq)}
+            ref={(el: Ref) => {
+              halos.current[i] = el;
+            }}
+          />
+        ))}
       </Instances>
       <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.beacon} attach="geometry" />

@@ -5,14 +5,14 @@ import { Vector3 } from 'three';
 export interface LabelItem {
   id: string;
   text: string;
-  /** Second line, e.g. "Offline" or "BFS depth 3". */
+  /** Second line, e.g. "BFS depth 3". */
   sub?: string;
   x: number;
   y: number;
   z: number;
   /** Higher wins when labels would overlap on screen. */
   priority: number;
-  tone: 'lot' | 'idle' | 'visited' | 'path' | 'broken';
+  tone: 'lot' | 'idle' | 'visited' | 'path';
 }
 
 export type LabelEls = Map<string, HTMLElement>;
