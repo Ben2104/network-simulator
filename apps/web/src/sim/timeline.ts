@@ -1,5 +1,10 @@
 import type { Car } from '@netsim/shared';
-import type { Route } from './routes';
+
+/** A route as station and road IDs, client first. */
+export interface Route {
+  nodeIds: string[];
+  linkIds: string[];
+}
 
 /** A position in projected map units (shared `project()`: x east, y south). */
 export interface Point {

@@ -19,7 +19,7 @@ Full design rationale: [`superpowers/specs/2026-10-19-3d-packet-highway-design.m
 
 Flow: **Submit** a file → server splits it into packets → cars appear in the CSULB lot.
 **Send** → BFS searches the network (stations light up in visit order) → chosen route highlights
-→ cars drive it and park in the Oregon lot. Break/restore stations and roads between sends.
+→ every car drives that route, lighting up each station it passes, and parks in the Oregon lot.
 
 ## System overview
 
@@ -27,10 +27,10 @@ Flow: **Submit** a file → server splits it into packets → cars appear in the
 ┌─────────────────────────────── Browser ───────────────────────────────┐
 │ apps/web (React + Vite)                                               │
 │                                                                       │
-│  ui/  FilePanel ─Submit─┐   SendBar ─Send─┐   BfsPanel  NetworkStatus │
+│  ui/  FilePanel ─Submit─┐   SendBar ─Send─┐   BfsPanel                │
 │                         ▼                 ▼                           │
 │  sim/ useSimulation reducer ◄──── api/client.ts ───────► fetch /api/* │
-│        │  state: phase, cars, failures, route, playback               │
+│        │  state: phase, cars, route, playback                         │
 │        ▼                                                              │
 │       timeline.ts (pure) ──► scene3d/ (React Three Fiber)             │
 │                                                                       │
@@ -73,7 +73,7 @@ docs/
 ### 1. Stateless backend
 
 The server holds one fixed topology and stores nothing between requests. The browser owns the
-packet plan (from Submit), the failure sets, and playback state.
+packet plan (from Submit) and playback state.
 
 - Render free instances restart and sleep; server state would vanish mid-demo.
 - Concurrent users never affect each other.
@@ -82,8 +82,9 @@ packet plan (from Submit), the failure sets, and playback state.
 ### 2. Submit and Send are separate
 
 - **Submit** (`/packetize`) only splits bytes into packets and cars.
-- **Send** (`/route`) runs BFS against the failure set _at send time_. Submit once, break things,
-  send, and the route reflects the current network.
+- **Send** (`/route`) runs BFS. The API still accepts failure sets (`disabledNodeIds`,
+  `disabledLinkIds`, frozen contract, demo routes below); the web app no longer offers failure
+  toggles and always sends empty sets, so every send drives the fewest-hop default route.
 
 ### 3. Car count scales with file size; real files go to `POST /api/upload`
 
@@ -124,9 +125,9 @@ call, and shape. All algorithm tests run without HTTP.
 ### 7. Determinism
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
-same BFS route and same cars, every presentation. The one exception is playback: each car picks
-a random route among the BFS-length routes and those up to two hops longer (see Playback), and
-cars leave at varied gaps and speeds, so traffic differs between sends.
+same BFS route and same cars, every presentation. Every car drives the BFS route; the one
+exception is playback timing: cars leave at varied gaps and speeds, so traffic differs between
+sends.
 
 ### 8. One pure timeline
 
@@ -145,7 +146,7 @@ cars leave at varied gaps and speeds, so traffic differs between sends.
 - Scenery (`scene3d/scenery.ts`, pure and unit-tested): a biome map paints the land texture
   (forest, coast, chaparral, Central Valley fields, Mojave, Great Basin, high desert, red rock);
   hand-placed ranges and volcanoes, lakes, instanced pines, broadleaf trees, shrubs, cacti and
-  rocks per biome, and drifting clouds that fade in the overview. Nothing is placed on a road,
+  rocks per biome. Nothing is placed on a road,
   station or lot. Decorative only: BFS ignores terrain.
 - Models: procedural primitives (`scene3d/`); Kenney Car/City kits (CC0) to be swapped in behind
   the same components (#22). Sources recorded in `apps/web/ASSETS.md`.
@@ -156,8 +157,7 @@ cars leave at varied gaps and speeds, so traffic differs between sends.
 
 The 2D SVG view was removed: the 3D scene is the only map. Without WebGL (or if the scene
 crashes) the map area explains why, and the sidebar still works: upload, Submit, Send, and the
-Network Status toggles (the keyboard and screen-reader path for failures). Playwright covers the
-3D view (`apps/web/e2e/`).
+route card. Playwright covers the 3D view (`apps/web/e2e/`).
 
 ## Network topology (fixed)
 
@@ -210,8 +210,7 @@ Reno → Klamath Falls). No single station failure disconnects CSULB from Oregon
 **east** (desert) corridor follows the I-15, US-95, I-84 and US-20 long-haul routes: Riverside →
 Barstow → Las Vegas → Tonopah → Winnemucca → Boise → Ontario → Pendleton, with cross-links
 Reno–Winnemucca and Bend–Burns–Ontario. At 10 hops BFS never picks it over the 9-hop default (it
-is the BFS route only when both western corridors are cut), but in playback roughly one car in
-five drives it anyway (see Playback).
+is the BFS route only when both western corridors are cut, which only the API can request).
 
 ### Demo routes (asserted in tests)
 
@@ -253,8 +252,8 @@ delivered | noRoute ──Submit──► packetizing      any ──Reset──
 packetizing | routing ──API error──► error (keeps cars, Retry)
 ```
 
-Failure toggles are enabled only in `idle`, `loaded`, `delivered`, `noRoute`. Mid-drive
-rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
+`noRoute` cannot happen from the web app (it sends no failures) but stays handled for API
+answers. Mid-drive rerouting is stretch goal #1; `/route` already accepts `fromNodeId` for it.
 
 ## Playback
 
@@ -270,11 +269,9 @@ simulation time `t`, using distances from the shared projection.
 - **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
   `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
   `packetizing` state is instantaneous and never shown.
-- **Each car picks its own route at random** (`sim/routes.ts`, `sim/plan.ts`) among every
-  working route with at most BFS hops + `ROUTE_SLACK` (2). Weights favour fewer hops (×0.55 per
-  extra hop) and roads few other routes share, so the lone desert corridor gets about a fifth of
-  the cars instead of none. The server answer stays deterministic and stays highlighted; cars
-  spread out like traffic and never use a broken station or road. `rng` is injectable for tests.
+- **Every car drives the BFS route** (`sim/plan.ts`): the server's `path` / `linkPath`, the
+  fewest-hop route a real router would forward on, so the search has a purpose. An unreachable
+  answer plans no cars.
 - **Natural traffic.** Departure gaps vary (0.55–1.45 × `CAR_STAGGER_SEC`) and each car cruises
   at its own speed (±12 %). Speeds are handed out fastest first, so no car drives through a
   slower one on the shared road out of the CSULB lot. Without an `rng` the timeline is fully
@@ -282,7 +279,7 @@ simulation time `t`, using distances from the shared projection.
 
 ## Playback (3D)
 
-`scene3d/` renders the same run from the same inputs: network, failure and BFS sets, and the
+`scene3d/` renders the same run from the same inputs: network, BFS sets, and the
 `Timeline` from `sim/timeline.ts`. `useSimulation` exposes `timeline` and a read-only `clockRef`;
 3D components read the clock inside `useFrame`, so no React state changes per frame.
 
@@ -299,11 +296,16 @@ simulation time `t`, using distances from the shared projection.
   pitches with acceleration (wheels stay flat).
 - **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the BFS
   panel uses. Labels show "BFS depth N" while searching.
-- **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, beacon): five draw
-  calls for 24 cars. Beacons above each car scale with camera distance so cars stay visible in
+- **Route stations.** Stations are drawn 1.5× their design size. `passTime()` in `world.ts`
+  gives the sim time each car drives past each route station; from the first pass the station
+  shows a light column in the route colour, and every pass fires a gold shockwave ring and a
+  beacon flash.
+- **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, stalk, halo,
+  beacon): seven draw calls for 24 cars. Beacons on a stalk above each car scale with camera
+  distance, and driving cars get a pulsing ground halo in their colour, so cars stay visible in
   the overview.
 - **Labels.** Plain DOM in a layer over the canvas, projected and decluttered by priority each
-  frame (lots > broken > route > visited > idle).
+  frame (lots > route > visited > idle).
 - **Camera.** `CameraRig` modes: Auto (lot after Submit, overview while searching, chase the
   lead car while driving, Oregon lot when delivered), Overview, Follow lead car. Any drag or
   scroll switches to Free. The sun's shadow box follows the orbit target.
@@ -465,7 +467,7 @@ the error banner.
 | ---------- | ------------------------ | --------------------------------------------------------------------- |
 | Algorithms | Vitest                   | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
 | API        | Vitest + `inject()`      | Endpoints, validation, error codes                                    |
-| Sim        | Vitest                   | Reducer transitions, locked toggles, timeline ordering                |
+| Sim        | Vitest                   | Reducer transitions, BFS car plans, timeline ordering                 |
 | E2E        | Playwright (3D)          | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
 | 3D         | Manual checklist + smoke | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 

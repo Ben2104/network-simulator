@@ -12,6 +12,7 @@ import {
   leadCar,
   lotSlot,
   parkedPose,
+  passTime,
   poseAt,
   roadCurve,
   rng,
@@ -297,5 +298,23 @@ describe('helpers', () => {
     ];
     expect(inRing(0.5, 0.5, square)).toBe(true);
     expect(inRing(1.5, 0.5, square)).toBe(false);
+  });
+});
+
+describe('passTime', () => {
+  const path = carPath(world, network, timeline.plans[0]!);
+  const at = (id: string) => world.pos.get(id)!;
+
+  it('times each station on the route in driving order, inside the trip', () => {
+    const [c, r, s] = ['c', 'r', 's'].map((id) => passTime(path, at(id)));
+    expect(path.departAt).toBeLessThanOrEqual(c!);
+    expect(c!).toBeLessThan(r!);
+    expect(r!).toBeLessThan(s!);
+    expect(s!).toBeLessThanOrEqual(path.arriveAt);
+  });
+
+  it('matches where poseAt puts the car', () => {
+    const p = poseAt(path, passTime(path, at('r')));
+    expect(Math.hypot(p.x - at('r').x, p.z - at('r').z)).toBeLessThan(3);
   });
 });

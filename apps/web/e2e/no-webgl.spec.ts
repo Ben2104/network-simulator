@@ -10,6 +10,6 @@ test('explains that the map needs WebGL', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('needs WebGL', { timeout: 30_000 });
   await expect(page.locator('canvas')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '2D view' })).toHaveCount(0);
-  await expect(page.getByRole('region', { name: 'Network status' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Send and playback' })).toBeVisible();
   expect(errors).toEqual([]);
 });

@@ -18,8 +18,6 @@ export interface CopyInput {
   visitedCount: number;
   stationCount: number;
   cars: CarCounts;
-  /** Labels of offline stations; roads are not named in the banner. */
-  offlineStationLabels: readonly string[];
   paused: boolean;
 }
 
@@ -36,7 +34,7 @@ export const formatBytes = (n: number) => `${n.toLocaleString('en-US')} B`;
 
 export function describePhase(i: CopyInput): PhaseCopy {
   const { cars } = i;
-  const hint = 'Failures can change between sends';
+  const hint = 'Every car follows the BFS fewest-hop route';
   switch (i.phase) {
     case 'idle':
       return {
@@ -57,39 +55,35 @@ export function describePhase(i: CopyInput): PhaseCopy {
         tone: 'busy',
         banner: 'Routing · Asking the route service for the fewest-hop path',
         footer: 'Routing · Waiting for the route service',
-        footerHint: 'Network controls locked while sending',
+        footerHint: hint,
       };
     case 'searching':
       return {
         tone: 'busy',
         banner: `Searching · BFS is exploring stations, ${i.visitedCount} of ${i.stationCount} visited`,
         footer: `Searching · ${i.visitedCount} / ${i.stationCount} stations visited`,
-        footerHint: 'Network controls locked while sending',
+        footerHint: hint,
       };
     case 'driving':
       return {
         tone: 'success',
         banner: `${i.paused ? 'Paused' : 'Sending'} · ${cars.total} cars driving from ${SENDER} to ${DEST}.`,
         footer: `${i.paused ? 'Paused' : 'Driving'} · ${cars.onRoad} on the road · ${cars.atSender} at CSULB · ${cars.atDestination} at destination`,
-        footerHint: 'Network controls locked while sending',
+        footerHint: hint,
       };
-    case 'delivered': {
-      const avoiding = i.offlineStationLabels.length
-        ? `, avoiding offline ${i.offlineStationLabels.join(', ')}`
-        : '';
+    case 'delivered':
       return {
         tone: 'success',
-        banner: `Delivered via ${i.hops} hops${avoiding}`,
+        banner: `Delivered via ${i.hops} hops`,
         footer: `Delivered · ${cars.atDestination} / ${cars.total} cars at ${DEST}`,
         footerHint: hint,
       };
-    }
     case 'noRoute':
       return {
         tone: 'danger',
-        banner: 'No route available · Destination unreachable due to multiple link/station outages',
+        banner: 'No route available · Destination unreachable',
         footer: `No route available · 0 / ${cars.total} cars dispatched`,
-        footerHint: 'Toggle failures in Network Status to restore connectivity',
+        footerHint: 'Click Send to try again',
       };
     case 'error':
       return {

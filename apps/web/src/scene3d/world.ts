@@ -396,6 +396,30 @@ export function inLotArea(p: Vec2, lot: Lot, margin = 1.5): boolean {
   );
 }
 
+/**
+ * Sim time at which car `path` drives past `at` (its closest point on the path), consistent with
+ * `poseAt`. Time maps to distance monotonically there, so bisection inverts it.
+ */
+export function passTime(path: CarPath, at: Vec2): number {
+  let best = Infinity;
+  let d = 0;
+  path.pts.forEach((p, i) => {
+    const e = dist(p, at);
+    if (e < best) {
+      best = e;
+      d = path.cum[i]!;
+    }
+  });
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (distanceAt(path, ease(mid)) < d) lo = mid;
+    else hi = mid;
+  }
+  return path.departAt + lo * (path.arriveAt - path.departAt);
+}
+
 /** Index of the car to follow: the driving car furthest along, else -1. */
 export function leadCar(paths: readonly CarPath[], t: number): number {
   let best = -1;

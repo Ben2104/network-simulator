@@ -76,10 +76,10 @@ See **[docs/architecture.md](docs/architecture.md)** for diagrams, design decisi
 contract, error codes, limits, config, and deployment details. Summary:
 
 - **Two steps.** Upload (`/upload`, ≤ 10 MB) or a preset splits the file into cars by size:
-  10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS
-  against current failures, then search animation, then cars drive.
-- **Stateless API.** Server holds one fixed topology. Browser holds cars and disabled
-  stations/roads. Survives Render restarts; concurrent users do not collide.
+  10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS,
+  then search animation, then every car drives the BFS route.
+- **Stateless API.** Server holds one fixed topology. Browser holds cars and playback state.
+  Survives Render restarts; concurrent users do not collide.
 - **BFS = fewest hops,** not shortest distance. Topology is designed so fewest-hop routes look
   sensible on the map.
 - **One contract.** `packages/shared` TypeBox schemas drive Fastify validation _and_ TS types in

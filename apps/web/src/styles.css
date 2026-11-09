@@ -337,10 +337,6 @@ h1 {
   border-color: var(--color-explore);
   border-radius: 50%;
 }
-.key.broken {
-  border-color: var(--color-danger);
-  border-radius: 50%;
-}
 
 /* Cards */
 .card {
@@ -547,20 +543,10 @@ textarea {
 .callout p {
   margin: 4px 0 0;
 }
-.callout.ok {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
-  font-weight: 600;
-}
 .callout.danger {
   border: 1px solid var(--color-danger);
   background: var(--color-danger-soft);
   color: var(--color-danger-text);
-}
-.callout.danger-text {
-  color: var(--color-danger-text);
-  font-weight: 600;
-  padding-left: 0;
 }
 .chips {
   display: flex;
@@ -590,57 +576,6 @@ textarea {
 .chip.plain {
   background: var(--color-surface);
   color: var(--color-text-muted);
-}
-.switches {
-  margin: 8px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 0;
-  font-size: 14px;
-}
-.switch-row > span:first-child {
-  flex: 1;
-}
-.switch-row .state {
-  font-size: 12.5px;
-  font-weight: 600;
-}
-.switch-row .state.on {
-  color: var(--color-primary);
-}
-.switch-row .state.off {
-  color: var(--color-danger);
-}
-.toggle {
-  position: relative;
-  width: 40px;
-  height: 22px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--color-primary);
-  cursor: pointer;
-}
-.toggle::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #fff;
-}
-.toggle[aria-checked='false'] {
-  background: var(--color-danger);
-}
-.toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Footer */
@@ -785,15 +720,6 @@ textarea {
 .label3d.path {
   border-color: var(--color-route);
   color: var(--color-route-text);
-}
-.label3d.broken {
-  border-color: var(--color-danger);
-  background: var(--color-danger-soft);
-  color: var(--color-danger-text);
-}
-.label3d.broken small {
-  color: var(--color-danger-text);
-  font-weight: 600;
 }
 .car-tip {
   display: flex;

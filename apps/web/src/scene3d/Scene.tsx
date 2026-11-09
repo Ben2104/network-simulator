@@ -12,7 +12,9 @@ import { C } from './palette';
 import { ParkingLot } from './ParkingLot';
 import { Road, type RoadState } from './Road';
 import { Station, type StationState } from './Station';
-import { buildWorld, carPath, LOT_LENGTH, type Vec2 } from './world';
+import { buildWorld, carPath, LOT_LENGTH, passTime, type Vec2 } from './world';
+
+const NO_PASSES: readonly number[] = [];
 
 export interface SceneProps {
   network: Network;
@@ -24,11 +26,6 @@ export interface SceneProps {
   visitedNodeIds: ReadonlySet<string>;
   pathNodeIds: ReadonlySet<string>;
   pathLinkIds: ReadonlySet<string>;
-  disabledNodeIds: ReadonlySet<string>;
-  disabledLinkIds: ReadonlySet<string>;
-  canToggle: boolean;
-  onToggleNode: (id: string) => void;
-  onToggleLink: (id: string) => void;
   cameraMode: CameraMode;
   onCameraMode: (mode: CameraMode) => void;
   rigRef: { current: RigApi | null };
@@ -60,6 +57,20 @@ export const Scene = memo(function Scene(props: SceneProps) {
     return m;
   }, [route]);
 
+  /** Per route station, the sim times cars drive past it (ascending), for the pass effects. */
+  const passes = useMemo(() => {
+    const m = new Map<string, number[]>();
+    if (!timeline || !paths) return m;
+    timeline.plans.forEach((plan, i) => {
+      for (const id of plan.route.nodeIds) {
+        const at = world.pos.get(id);
+        if (at) (m.get(id) ?? m.set(id, []).get(id)!).push(passTime(paths[i]!, at));
+      }
+    });
+    for (const times of m.values()) times.sort((a, b) => a - b);
+    return m;
+  }, [timeline, paths, world]);
+
   const roadsAt = useMemo(() => {
     const m = new Map<string, Vec2[][]>();
     for (const l of network.links) {
@@ -69,21 +80,14 @@ export const Scene = memo(function Scene(props: SceneProps) {
     return m;
   }, [network, world]);
 
-  const { disabledNodeIds, pathNodeIds, visitedNodeIds } = props;
+  const { pathNodeIds, visitedNodeIds } = props;
   const stationState = useCallback(
     (id: string): StationState =>
-      disabledNodeIds.has(id)
-        ? 'broken'
-        : pathNodeIds.has(id)
-          ? 'path'
-          : visitedNodeIds.has(id)
-            ? 'visited'
-            : 'idle',
-    [disabledNodeIds, pathNodeIds, visitedNodeIds],
+      pathNodeIds.has(id) ? 'path' : visitedNodeIds.has(id) ? 'visited' : 'idle',
+    [pathNodeIds, visitedNodeIds],
   );
 
-  const roadState = (id: string): RoadState =>
-    props.disabledLinkIds.has(id) ? 'broken' : props.pathLinkIds.has(id) ? 'path' : 'idle';
+  const roadState = (id: string): RoadState => (props.pathLinkIds.has(id) ? 'path' : 'idle');
 
   const carCount = props.cars.length;
   const labels = useMemo(
@@ -116,15 +120,11 @@ export const Scene = memo(function Scene(props: SceneProps) {
           id: n.id,
           text: n.label,
           sub:
-            state === 'broken'
-              ? '✕ Offline'
-              : phase === 'searching' && v && state === 'visited'
-                ? `BFS depth ${v.depth}`
-                : undefined,
+            phase === 'searching' && v && state === 'visited' ? `BFS depth ${v.depth}` : undefined,
           x: p.x,
           y: 7,
           z: p.z,
-          priority: { broken: 80, path: 60, visited: 40, idle: 20 }[state],
+          priority: { path: 60, visited: 40, idle: 20 }[state],
           tone: state,
         };
       }),
@@ -164,14 +164,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
 
         <Ground world={world} />
         {network.links.map((l) => (
-          <Road
-            key={l.id}
-            id={l.id}
-            curve={world.roads.get(l.id)!}
-            state={roadState(l.id)}
-            canToggle={props.canToggle}
-            onToggle={props.onToggleLink}
-          />
+          <Road key={l.id} curve={world.roads.get(l.id)!} state={roadState(l.id)} />
         ))}
         {network.nodes
           .filter((n) => n.kind === 'router')
@@ -185,8 +178,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
               clockRef={clockRef}
               roads={roadsAt.get(n.id) ?? []}
               lots={lots}
-              canToggle={props.canToggle}
-              onToggle={props.onToggleNode}
+              passes={passes.get(n.id) ?? NO_PASSES}
             />
           ))}
         <ParkingLot lot={world.client} kind="client" active={carsHome && props.cars.length > 0} />

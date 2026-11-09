@@ -9,7 +9,7 @@ import { useSimulation } from './sim/useSimulation';
 import { Banner, CameraControls, Footer, Header, Legend } from './ui/Chrome';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { countCars, describePhase } from './ui/copy';
-import { NetworkStatus, RouteCard, SendPlayback, YourFile } from './ui/Sidebar';
+import { RouteCard, SendPlayback, YourFile } from './ui/Sidebar';
 
 const EMPTY: ReadonlySet<string> = new Set();
 const NO_CARS: readonly never[] = [];
@@ -92,9 +92,6 @@ export function App() {
       carTotal,
       sim.frames.map((f) => f.status),
     ),
-    offlineStationLabels: network
-      ? network.nodes.filter((n) => sim.disabledNodeIds.has(n.id)).map((n) => n.label)
-      : [],
     paused: sim.paused,
   });
   const banner = loadError
@@ -148,11 +145,6 @@ export function App() {
                       visitedNodeIds={visitedNodeIds}
                       pathNodeIds={pathNodeIds}
                       pathLinkIds={pathLinkIds}
-                      disabledNodeIds={sim.disabledNodeIds}
-                      disabledLinkIds={sim.disabledLinkIds}
-                      canToggle={sim.canToggleFailures}
-                      onToggleNode={sim.toggleNode}
-                      onToggleLink={sim.toggleLink}
                       cameraMode={cameraMode}
                       onCameraMode={setCameraMode}
                       rigRef={rigRef}
@@ -197,15 +189,6 @@ export function App() {
               route={route}
               visitedCount={sim.visitedCount}
               apiError={sim.apiError}
-            />
-            <NetworkStatus
-              network={network}
-              disabledNodeIds={sim.disabledNodeIds}
-              disabledLinkIds={sim.disabledLinkIds}
-              canToggle={sim.canToggleFailures}
-              phase={phase}
-              onToggleNode={sim.toggleNode}
-              onToggleLink={sim.toggleLink}
             />
           </aside>
         )}
