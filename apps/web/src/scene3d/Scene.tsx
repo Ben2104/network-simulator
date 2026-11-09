@@ -57,7 +57,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
     return m;
   }, [route]);
 
-  /** Per route station, the sim times cars drive past it (ascending), for the pass effects. */
+  /** Per station on any car's route, the sim times cars drive past it (ascending), for the pass effects. */
   const passes = useMemo(() => {
     const m = new Map<string, number[]>();
     if (!timeline || !paths) return m;

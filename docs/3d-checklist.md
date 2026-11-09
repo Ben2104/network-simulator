@@ -30,7 +30,8 @@ without a discrete GPU).
 
 ## Route
 
-- [ ] Every car drives the highlighted BFS route (coast corridor); none take another road.
+- [ ] Most cars (17 of 24) drive the highlighted BFS route (coast corridor), lead car included;
+      the other 7 wander other roads to Oregon.
 - [ ] Each route station lights a column in the route colour once the first car passes it, and
       every passing car fires a gold ring and a beacon flash.
 - [ ] Cars carry a stalk-mounted beacon and, while driving, a pulsing ground halo.

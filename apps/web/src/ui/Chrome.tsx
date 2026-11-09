@@ -41,9 +41,9 @@ export function Header() {
         <div className="help" role="note">
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
-            cars. Send runs a breadth-first search for the fewest-hop route (highlighted), and every
-            car drives that route from the CSULB lot to the Oregon data center. Each station lights
-            up as the convoy reaches it.
+            cars. Send runs a breadth-first search for the fewest-hop route (highlighted). Most cars
+            drive that route from the CSULB lot to the Oregon data center; a few wander other roads.
+            Each station lights up as a car reaches it.
           </p>
           <p>Use the speed control to slow the cars down for a presentation.</p>
           <p>

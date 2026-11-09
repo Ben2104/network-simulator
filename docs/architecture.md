@@ -19,7 +19,8 @@ Full design rationale: [`superpowers/specs/2026-10-19-3d-packet-highway-design.m
 
 Flow: **Submit** a file → server splits it into packets → cars appear in the CSULB lot.
 **Send** → BFS searches the network (stations light up in visit order) → chosen route highlights
-→ every car drives that route, lighting up each station it passes, and parks in the Oregon lot.
+→ most cars (70 %) drive that route and the rest wander other roads; each car lights up the
+stations it passes and parks in the Oregon lot.
 
 ## System overview
 
@@ -125,9 +126,9 @@ call, and shape. All algorithm tests run without HTTP.
 ### 7. Determinism
 
 Fixed topology, BFS neighbors sorted by ID, deterministic packet distribution. Same inputs →
-same BFS route and same cars, every presentation. Every car drives the BFS route; the one
-exception is playback timing: cars leave at varied gaps and speeds, so traffic differs between
-sends.
+same BFS route and same cars, every presentation. The one exception is playback: which cars
+wander off the BFS route, the roads they take, and their departure gaps and speeds are random, so
+traffic differs between sends.
 
 ### 8. One pure timeline
 
@@ -269,9 +270,13 @@ simulation time `t`, using distances from the shared projection.
 - **Packetize.** Uploaded files get their plan from `POST /api/upload`; presets and messages use
   `sim/packetize.ts`, which validates and calls the same shared `toCarPlan()`. The
   `packetizing` state is instantaneous and never shown.
-- **Every car drives the BFS route** (`sim/plan.ts`): the server's `path` / `linkPath`, the
-  fewest-hop route a real router would forward on, so the search has a purpose. An unreachable
-  answer plans no cars.
+- **Most cars drive the BFS route** (`sim/plan.ts`): `BFS_SHARE = 0.7` of the cars, rounded up
+  (17 of 24), take the server's `path` / `linkPath`, the fewest-hop route a real router would
+  forward on, so the search has a purpose. The lead car is always one of them. The rest wander:
+  each picks another client → server route at most `ROUTE_SLACK` (2) hops longer
+  (`sim/routes.ts`), weighted toward fewer hops and rarely shared roads. If no other route exists,
+  every car takes BFS. An unreachable answer plans no cars. Randomness is injected (`rng`), so
+  tests pin every choice.
 - **Natural traffic.** Departure gaps vary (0.55–1.45 × `CAR_STAGGER_SEC`) and each car cruises
   at its own speed (±12 %). Speeds are handed out fastest first, so no car drives through a
   slower one on the shared road out of the CSULB lot. Without an `rng` the timeline is fully
@@ -297,7 +302,7 @@ simulation time `t`, using distances from the shared projection.
 - **Search.** A station's ring fires at `visitIndex × BFS_STEP_SEC`, the same clock the BFS
   panel uses. Labels show "BFS depth N" while searching.
 - **Route stations.** Stations are drawn 1.5× their design size. `passTime()` in `world.ts`
-  gives the sim time each car drives past each route station; from the first pass the station
+  gives the sim time each car drives past each station on its route; from the first pass the station
   shows a light column in the route colour, and every pass fires a gold shockwave ring and a
   beacon flash.
 - **Cars.** One drei `<Instances>` per car part (body, glass, wheels, lights, stalk, halo,
@@ -467,7 +472,7 @@ the error banner.
 | ---------- | ------------------------- | --------------------------------------------------------------------- |
 | Algorithms | Vitest                    | BFS, topology invariants, `fromNodeId`, packetization math, haversine |
 | API        | Vitest + `inject()`       | Endpoints, validation, error codes                                    |
-| Sim        | Vitest                    | Reducer transitions, BFS car plans, timeline ordering                 |
+| Sim        | Vitest                    | Reducer transitions, 70/30 BFS/wander car plans, timeline ordering    |
 | E2E        | Playwright (CI job `e2e`) | `e2e/`: upload → cars, Submit → Send, camera release, no-WebGL notice |
 | 3D         | Manual checklist + smoke  | `docs/3d-checklist.md`; `e2e/scene3d.spec.ts` (non-blank, fallback)   |
 

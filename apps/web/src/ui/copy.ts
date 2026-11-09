@@ -34,7 +34,7 @@ export const formatBytes = (n: number) => `${n.toLocaleString('en-US')} B`;
 
 export function describePhase(i: CopyInput): PhaseCopy {
   const { cars } = i;
-  const hint = 'Every car follows the BFS fewest-hop route';
+  const hint = 'Most cars follow the BFS fewest-hop route; a few wander';
   switch (i.phase) {
     case 'idle':
       return {

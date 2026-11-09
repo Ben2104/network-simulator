@@ -154,7 +154,7 @@ export function useSimulation(network: Network | null) {
     try {
       const route = await api.route({ disabledNodeIds: [], disabledLinkIds: [] });
       if (id !== requestId.current) return;
-      const timeline = planRun(upload.packets, route, pos, Math.random);
+      const timeline = planRun(network, upload.packets, route, pos, Math.random);
       setRun({ route, timeline });
     } catch (e) {
       if (id !== requestId.current) return;
