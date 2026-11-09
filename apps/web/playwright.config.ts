@@ -12,6 +12,8 @@ export default defineConfig({
   timeout: 60_000,
   forbidOnly: ci,
   retries: ci ? 1 : 0,
+  // Software WebGL shares the runner CPU; parallel scenes starve API/UI updates.
+  workers: ci ? 1 : undefined,
   // The HTML report is uploaded as an artifact when the CI job fails.
   reporter: ci ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {

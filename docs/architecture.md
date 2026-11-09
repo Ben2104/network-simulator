@@ -506,6 +506,8 @@ The partial-delivery/outage browser regression pauses the real simulation and se
 partial arrival through the development-only `window.__packetHighway` clock hook. It then
 checks actual rendered car positions, delivery counts and frozen timers. Demand rendering
 avoids waiting for hundreds of software-WebGL frames on CI; the hook is absent in production.
+CI runs browser tests with one worker so software-WebGL scenes do not compete for the runner CPU.
+Live failure tests wait for the route response before checking the rendered update.
 
 | Layer      | Tool                      | Covers                                                                |
 | ---------- | ------------------------- | --------------------------------------------------------------------- |

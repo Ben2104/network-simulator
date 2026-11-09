@@ -91,7 +91,9 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
   const live = page.getByRole('region', { name: 'Live network failures' });
   await live.getByText('Routers', { exact: true }).click();
   for (const [i, name] of ['San Jose', 'Sacramento', 'Winnemucca'].entries()) {
+    const reroute = page.waitForResponse('**/api/route');
     await live.getByRole('switch', { name: `${name} online`, exact: true }).click();
+    expect((await reroute).ok()).toBe(true);
     await expect(live).toContainText(`${i + 1} route updates`);
   }
   await expect(page.locator('.state-chip')).toContainText('BLOCKED');
