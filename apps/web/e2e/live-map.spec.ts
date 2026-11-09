@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { SimulationDebug } from '../src/sim/useSimulation';
 
 test('a router can be switched offline and back by clicking its map label', async ({ page }) => {
   await page.goto('/');
@@ -49,10 +50,13 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
   await expect(
     page.getByRole('button', { name: 'Las Vegas — toggle router', exact: true }),
   ).toHaveCSS('opacity', '1', { timeout: 30_000 });
-  // Lower raster resolution for software WebGL; world positions and status checks stay unchanged.
-  await page.evaluate(() =>
-    (window as unknown as { __r3f: import('@react-three/fiber').RootState }).__r3f.setDpr(0.5),
-  );
+  // Render on demand at lower raster resolution in software WebGL. Assertions still inspect
+  // the actual renderer objects; neither car geometry nor the real API response is mocked.
+  await page.evaluate(() => {
+    const state = (window as unknown as { __r3f: import('@react-three/fiber').RootState }).__r3f;
+    state.setDpr(0.5);
+    state.setFrameloop('demand');
+  });
   const network = await (await page.request.get('/api/network')).json();
   const { buildWorld, lotSlot } = await import('../src/scene3d/world');
   const world = buildWorld(network);
@@ -64,13 +68,24 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
   await page.getByRole('button', { name: '➤ Send', exact: true }).click();
   await first;
   const timing = page.getByRole('region', { name: 'Transfer timing', exact: true });
-  let delivered = 0;
-  for (let i = 0; i < 400 && delivered === 0; i++) {
-    await page.clock.fastForward(1_000);
-    delivered = parseInt((await timing.locator('dd').nth(2).innerText()).split('/')[0]!);
-  }
   await page.getByRole('button', { name: 'Pause', exact: true }).click();
-  delivered = parseInt((await timing.locator('dd').nth(2).innerText()).split('/')[0]!);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => (window as Window & { __packetHighway?: SimulationDebug }).__packetHighway?.paused,
+      ),
+    )
+    .toBe(true);
+  const delivered = await page.evaluate(() => {
+    const debug = (window as Window & { __packetHighway?: SimulationDebug }).__packetHighway!;
+    const firstArrival = Math.min(...debug.arrivals);
+    const lastArrival = Math.max(...debug.arrivals);
+    if (!(lastArrival > firstArrival)) throw new Error('Expected staggered group arrivals');
+    const partialTime = firstArrival + Math.min(0.05, (lastArrival - firstArrival) / 2);
+    debug.seek(partialTime);
+    return debug.arrivals.filter((at) => at <= partialTime).length;
+  });
+  await expect(timing.locator('dd').nth(2)).toHaveText(`${delivered} / 24`);
   expect(delivered).toBeGreaterThan(0);
   expect(delivered).toBeLessThan(24);
   const live = page.getByRole('region', { name: 'Live network failures' });
@@ -83,21 +98,35 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
   await expect(page.locator('.banner')).toContainText('No route — transfer incomplete');
   await expect(timing.locator('dd').nth(2)).toHaveText(`${delivered} / 24`);
   await page.getByRole('button', { name: 'Resume', exact: true }).click();
-  await page.clock.fastForward(1_000);
-  const rendered = await page.evaluate(() => {
-    const state = (window as unknown as { __r3f: import('@react-three/fiber').RootState }).__r3f;
-    const cars: { id: string; status: string; x: number; z: number }[] = [];
-    state.scene.traverse((o) => {
-      if (o.userData.packetCarId)
-        cars.push({
-          id: o.userData.packetCarId,
-          status: o.userData.packetStatus,
-          x: o.position.x,
-          z: o.position.z,
-        });
+  await page.evaluate(() =>
+    (window as unknown as { __r3f: import('@react-three/fiber').RootState }).__r3f.invalidate(),
+  );
+  const readRendered = () =>
+    page.evaluate(() => {
+      const state = (window as unknown as { __r3f: import('@react-three/fiber').RootState }).__r3f;
+      const cars: { id: string; status: string; x: number; z: number }[] = [];
+      state.scene.traverse((o) => {
+        if (o.userData.packetCarId)
+          cars.push({
+            id: o.userData.packetCarId,
+            status: o.userData.packetStatus,
+            x: o.position.x,
+            z: o.position.z,
+          });
+      });
+      return cars;
     });
-    return cars;
-  });
+  await expect
+    .poll(async () => {
+      const cars = await readRendered();
+      return {
+        total: cars.length,
+        arrived: cars.filter((p) => p.status === 'arrived').length,
+        blocked: cars.filter((p) => p.status === 'blocked').length,
+      };
+    })
+    .toEqual({ total: 24, arrived: delivered, blocked: 24 - delivered });
+  const rendered = await readRendered();
   expect(rendered).toHaveLength(24);
   expect(rendered.filter((p) => p.status === 'arrived')).toHaveLength(delivered);
   expect(rendered.filter((p) => p.status === 'blocked')).toHaveLength(24 - delivered);

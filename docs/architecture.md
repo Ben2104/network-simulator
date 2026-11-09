@@ -502,6 +502,11 @@ the error banner.
 
 ## Testing
 
+The partial-delivery/outage browser regression pauses the real simulation and seeks to a
+partial arrival through the development-only `window.__packetHighway` clock hook. It then
+checks actual rendered car positions, delivery counts and frozen timers. Demand rendering
+avoids waiting for hundreds of software-WebGL frames on CI; the hook is absent in production.
+
 | Layer      | Tool                      | Covers                                                                |
 | ---------- | ------------------------- | --------------------------------------------------------------------- |
 | Algorithms | Vitest                    | BFS, topology invariants, `fromNodeId`, packetization math, haversine |

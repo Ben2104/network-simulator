@@ -27,6 +27,13 @@ export type Phase =
 export const SPEEDS = [0.25, 0.5, 1, 2] as const;
 export type Speed = (typeof SPEEDS)[number];
 
+/** Development-only clock inspection for deterministic browser regression tests. */
+export interface SimulationDebug {
+  readonly paused: boolean;
+  readonly arrivals: readonly number[];
+  seek: (seconds: number) => void;
+}
+
 export interface Upload {
   label: string;
   packets: PacketizeResponse;
@@ -93,6 +100,29 @@ export function useSimulation(network: Network | null) {
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
   }, [run, paused, rerouting, apiError]);
+
+  // Excluded from production by Vite. Tests can inspect the real plan and seek only while
+  // paused, rather than rendering hundreds of software-WebGL frames to reach a known state.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const target = window as Window & { __packetHighway?: SimulationDebug };
+    const debug: SimulationDebug = {
+      paused,
+      arrivals: run?.timeline.plans.map((p) => p.arriveAt) ?? [],
+      seek: (seconds) => {
+        if (!run || !paused || routing || rerouting || apiError)
+          throw new Error('Pause an active simulation before seeking');
+        if (!Number.isFinite(seconds) || seconds < 0 || seconds > clockStop(run.timeline))
+          throw new RangeError('Seek time is outside the current simulation');
+        clockRef.current = seconds;
+        setClock(seconds);
+      },
+    };
+    target.__packetHighway = debug;
+    return () => {
+      if (target.__packetHighway === debug) delete target.__packetHighway;
+    };
+  }, [run, paused, routing, rerouting, apiError]);
 
   const phase: Phase = useMemo(() => {
     if (apiError) return 'error';
