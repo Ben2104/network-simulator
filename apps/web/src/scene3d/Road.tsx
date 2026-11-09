@@ -7,7 +7,7 @@ import { ribbon } from './geometry';
 import { C } from './palette';
 import { ROAD_WIDTH, type Vec2 } from './world';
 
-export type RoadState = 'idle' | 'path';
+export type RoadState = 'idle' | 'path' | 'offline';
 
 interface Props {
   curve: Vec2[];
@@ -56,6 +56,9 @@ export const Road = memo(function Road({ curve, state }: Props) {
 
   return (
     <group>
+      {state === 'offline' && (
+        <Line points={line} color={C.danger} lineWidth={4} dashed dashSize={3} gapSize={2} />
+      )}
       {state === 'path' && (
         <mesh geometry={glow}>
           <meshStandardMaterial
@@ -82,7 +85,7 @@ export const Road = memo(function Road({ curve, state }: Props) {
       )}
       <mesh geometry={asphalt} receiveShadow>
         <meshStandardMaterial
-          color={C.asphalt}
+          color={state === 'offline' ? C.danger : C.asphalt}
           roughness={0.9}
           polygonOffset
           polygonOffsetFactor={-1}

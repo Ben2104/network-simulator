@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import type { Car, Network, RouteResponse } from '@netsim/shared';
-import { BFS_STEP_SEC, type Timeline } from '../sim/timeline';
+import { BFS_STEP_SEC, carStatus, type Timeline } from '../sim/timeline';
 import type { Phase } from '../sim/useSimulation';
 import { CameraRig, type CameraMode, type RigApi } from './CameraRig';
 import { Cars } from './Cars';
@@ -18,7 +18,11 @@ const NO_PASSES: readonly number[] = [];
 
 export interface SceneProps {
   network: Network;
+  disabledNodeIds: ReadonlySet<string>;
+  disabledLinkIds: ReadonlySet<string>;
+  onToggleNode: (id: string) => void;
   phase: Phase;
+  counts: { waiting: number; blocked: number; arrived: number };
   cars: readonly Car[];
   route: RouteResponse | null;
   timeline: Timeline | null;
@@ -83,11 +87,18 @@ export const Scene = memo(function Scene(props: SceneProps) {
   const { pathNodeIds, visitedNodeIds } = props;
   const stationState = useCallback(
     (id: string): StationState =>
-      pathNodeIds.has(id) ? 'path' : visitedNodeIds.has(id) ? 'visited' : 'idle',
-    [pathNodeIds, visitedNodeIds],
+      props.disabledNodeIds.has(id)
+        ? 'offline'
+        : pathNodeIds.has(id)
+          ? 'path'
+          : visitedNodeIds.has(id)
+            ? 'visited'
+            : 'idle',
+    [pathNodeIds, visitedNodeIds, props.disabledNodeIds],
   );
 
-  const roadState = (id: string): RoadState => (props.pathLinkIds.has(id) ? 'path' : 'idle');
+  const roadState = (id: string): RoadState =>
+    props.disabledLinkIds.has(id) ? 'offline' : props.pathLinkIds.has(id) ? 'path' : 'idle';
 
   const carCount = props.cars.length;
   const labels = useMemo(
@@ -105,8 +116,8 @@ export const Scene = memo(function Scene(props: SceneProps) {
                 : 'Destination: US-West Data Center, Oregon',
             sub:
               n.kind === 'client'
-                ? `client · ${carCount} car${carCount === 1 ? '' : 's'}`
-                : 'server',
+                ? `client · ${props.counts.waiting + props.counts.blocked} groups at sender${props.counts.blocked ? ` · ${props.counts.blocked} no route` : ''}`
+                : `server · ${props.counts.arrived} / ${carCount} delivered`,
             x: lot.center.x,
             y: 9,
             z: lot.center.z,
@@ -118,17 +129,17 @@ export const Scene = memo(function Scene(props: SceneProps) {
         const v = visit.get(n.id);
         return {
           id: n.id,
-          text: n.label,
+          text: state === 'offline' ? `${n.label} · Offline` : n.label,
           sub:
             phase === 'searching' && v && state === 'visited' ? `BFS depth ${v.depth}` : undefined,
           x: p.x,
           y: 7,
           z: p.z,
-          priority: { path: 60, visited: 40, idle: 20 }[state],
+          priority: { offline: 80, path: 60, visited: 40, idle: 20 }[state],
           tone: state,
         };
       }),
-    [network, world, stationState, visit, phase, carCount],
+    [network, world, stationState, visit, phase, carCount, props.counts],
   );
 
   const overview = useMemo(
@@ -172,6 +183,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
             <Station
               key={n.id}
               id={n.id}
+              onToggle={() => props.onToggleNode(n.id)}
               pos={world.pos.get(n.id)!}
               state={stationState(n.id)}
               visitAt={visit.get(n.id)?.at ?? null}
@@ -206,7 +218,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
           clockRef={clockRef}
         />
       </Canvas>
-      <LabelLayer items={labels} els={labelEls} />
+      <LabelLayer items={labels} els={labelEls} onToggle={props.onToggleNode} />
       {hovered && (
         <div ref={tipEl} className="car-tip" role="tooltip">
           <b>Car #{String(hovered.seq + 1).padStart(2, '0')}</b>
@@ -215,6 +227,19 @@ export const Scene = memo(function Scene(props: SceneProps) {
             {hovered.lastPacket.toLocaleString('en-US')}
           </span>
           <span>{formatBytes(hovered.bytes)}</span>
+          <span>
+            {timeline?.plans.find((p) => p.carId === hovered.id)
+              ? carStatus(
+                  timeline.plans.find((p) => p.carId === hovered.id)!,
+                  clockRef.current,
+                ) === 'blocked'
+                ? 'No route — waiting at sender'
+                : carStatus(
+                    timeline.plans.find((p) => p.carId === hovered.id)!,
+                    clockRef.current,
+                  )
+              : 'At sender'}
+          </span>
         </div>
       )}
     </>

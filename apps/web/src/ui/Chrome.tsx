@@ -45,7 +45,11 @@ export function Header() {
             drive that route from the CSULB lot to the Oregon data center; a few wander other roads.
             Each station lights up as a car reaches it.
           </p>
-          <p>Use the speed control to slow the cars down for a presentation.</p>
+          <p>
+            Use the speed control to slow the cars down for a presentation. Click a router to switch
+            it offline or online during a run. Affected unfinished groups retry from the sender
+            using BFS. Use the sidebar switches for road failures.
+          </p>
           <p>
             Drag to orbit, right-drag to pan, scroll to zoom. Auto camera follows the action; Follow
             lead car chases the first car and lets go as soon as you drag.
@@ -97,6 +101,9 @@ export function Legend() {
         </li>
         <li>
           <i className="key visited" /> Visited by BFS
+        </li>
+        <li>
+          <i className="key broken" /> Offline
         </li>
       </ul>
     </div>

@@ -12,7 +12,7 @@ export interface LabelItem {
   z: number;
   /** Higher wins when labels would overlap on screen. */
   priority: number;
-  tone: 'lot' | 'idle' | 'visited' | 'path';
+  tone: 'lot' | 'idle' | 'visited' | 'path' | 'offline';
 }
 
 export type LabelEls = Map<string, HTMLElement>;
@@ -28,12 +28,28 @@ interface Rect {
  * DOM side: plain absolutely-positioned labels in a layer over the canvas (crisp text, readable
  * by screen readers, no React root per label). `LabelTracker` moves them every frame.
  */
-export function LabelLayer(props: { items: readonly LabelItem[]; els: RefObject<LabelEls> }) {
+export function LabelLayer(props: {
+  items: readonly LabelItem[];
+  els: RefObject<LabelEls>;
+  onToggle?: (id: string) => void;
+}) {
   return (
     <div className="labels3d">
       {props.items.map((item) => (
         <div
           key={item.id}
+          role={item.tone !== 'lot' && props.onToggle ? 'button' : undefined}
+          tabIndex={item.tone !== 'lot' && props.onToggle ? 0 : undefined}
+          aria-label={
+            item.tone !== 'lot' && props.onToggle ? `${item.text} — toggle router` : undefined
+          }
+          onClick={item.tone !== 'lot' ? () => props.onToggle?.(item.id) : undefined}
+          onKeyDown={(e) => {
+            if (item.tone !== 'lot' && (e.key === 'Enter' || e.key === ' ')) {
+              e.preventDefault();
+              props.onToggle?.(item.id);
+            }
+          }}
           ref={(el) => {
             if (el) props.els.current.set(item.id, el);
             else props.els.current.delete(item.id);
@@ -77,6 +93,7 @@ export function LabelTracker(props: { items: readonly LabelItem[]; els: RefObjec
       if (show) placed.push(r);
       el.style.transform = `translate(${Math.round(r.x0)}px, ${Math.round(r.y0)}px)`;
       el.style.opacity = show ? '1' : '0';
+      el.style.visibility = show ? 'visible' : 'hidden';
     }
   });
   return null;

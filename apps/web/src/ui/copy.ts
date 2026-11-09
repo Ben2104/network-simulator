@@ -85,6 +85,13 @@ export function describePhase(i: CopyInput): PhaseCopy {
         footer: `No route available · 0 / ${cars.total} cars dispatched`,
         footerHint: 'Click Send to try again',
       };
+    case 'blocked':
+      return {
+        tone: 'danger',
+        banner: 'Waiting for a route · Restore a connection to resume',
+        footer: 'Packet groups waiting for connectivity',
+        footerHint: 'Restore an offline road or router',
+      };
     case 'error':
       return {
         tone: 'danger',
@@ -98,7 +105,7 @@ export function describePhase(i: CopyInput): PhaseCopy {
 /** Splits cars by where they are. Before any Send every car is at the sender. */
 export function countCars(
   total: number,
-  statuses: readonly ('waiting' | 'driving' | 'arrived')[],
+  statuses: readonly ('waiting' | 'driving' | 'arrived' | 'blocked')[],
 ): CarCounts {
   const onRoad = statuses.filter((s) => s === 'driving').length;
   const atDestination = statuses.filter((s) => s === 'arrived').length;

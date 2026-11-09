@@ -9,14 +9,30 @@ import {
 import { api, ApiRequestError } from '../api/client';
 import { packetize } from './packetize';
 import { planRun } from './plan';
-import { bfsStepsShown, framesAt, type CarFrame, type Timeline } from './timeline';
+import { blockedTimeline, clockStop, retryTimeline } from './reroute';
+import { BFS_STEP_SEC, bfsStepsShown, framesAt, type CarFrame, type Timeline } from './timeline';
 
 /** Packetizing is synchronous here, so the architecture's `packetizing` state never shows. */
 export type Phase =
-  'idle' | 'loaded' | 'routing' | 'searching' | 'driving' | 'delivered' | 'noRoute' | 'error';
+  | 'idle'
+  | 'loaded'
+  | 'routing'
+  | 'searching'
+  | 'driving'
+  | 'delivered'
+  | 'noRoute'
+  | 'blocked'
+  | 'error';
 
 export const SPEEDS = [0.25, 0.5, 1, 2] as const;
 export type Speed = (typeof SPEEDS)[number];
+
+/** Development-only clock inspection for deterministic browser regression tests. */
+export interface SimulationDebug {
+  readonly paused: boolean;
+  readonly arrivals: readonly number[];
+  seek: (seconds: number) => void;
+}
 
 export interface Upload {
   label: string;
@@ -44,6 +60,10 @@ export function useSimulation(network: Network | null) {
   );
   const [upload, setUpload] = useState<Upload | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
+  const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
+  const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
+  const [rerouting, setRerouting] = useState(false);
+  const [rerouteCount, setRerouteCount] = useState(0);
   const [routing, setRouting] = useState(false);
   const [run, setRun] = useState<Run | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -54,6 +74,7 @@ export function useSimulation(network: Network | null) {
   const clockRef = useRef(0);
   /** Bumped by every Send and Reset so a late API reply cannot revive a cleared run. */
   const requestId = useRef(0);
+  const recalculating = useRef(false);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -62,31 +83,63 @@ export function useSimulation(network: Network | null) {
   // Simulation clock: advances by real elapsed time x speed, so changing speed mid-flight is
   // smooth and Pause simply stops advancing it.
   useEffect(() => {
-    if (!run || paused) return;
+    if (!run || paused || rerouting || apiError) return;
     let last = performance.now();
     let frame = 0;
     const tick = (now: number) => {
       // Clamp to [0, 0.1] s: a clock that jumps backwards must not rewind the simulation.
       const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1);
       last = now;
-      const next = Math.min(clockRef.current + dt * speedRef.current, run.timeline.end);
+      if (recalculating.current) return;
+      const stop = clockStop(run.timeline);
+      const next = Math.min(clockRef.current + dt * speedRef.current, stop);
       clockRef.current = next;
       setClock(next);
-      if (next < run.timeline.end) frame = requestAnimationFrame(tick);
+      if (next < clockStop(run.timeline)) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [run, paused]);
+  }, [run, paused, rerouting, apiError]);
+
+  // Excluded from production by Vite. Tests can inspect the real plan and seek only while
+  // paused, rather than rendering hundreds of software-WebGL frames to reach a known state.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const target = window as Window & { __packetHighway?: SimulationDebug };
+    const debug: SimulationDebug = {
+      paused,
+      arrivals: run?.timeline.plans.map((p) => p.arriveAt) ?? [],
+      seek: (seconds) => {
+        if (!run || !paused || routing || rerouting || apiError)
+          throw new Error('Pause an active simulation before seeking');
+        if (!Number.isFinite(seconds) || seconds < 0 || seconds > clockStop(run.timeline))
+          throw new RangeError('Seek time is outside the current simulation');
+        clockRef.current = seconds;
+        setClock(seconds);
+      },
+    };
+    target.__packetHighway = debug;
+    return () => {
+      if (target.__packetHighway === debug) delete target.__packetHighway;
+    };
+  }, [run, paused, routing, rerouting, apiError]);
 
   const phase: Phase = useMemo(() => {
     if (apiError) return 'error';
     if (!upload) return 'idle';
     if (routing) return 'routing';
     if (!run) return 'loaded';
+    if (run.route.status === 'unreachable' && rerouteCount === 0)
+      return clock < run.timeline.driveStart ? 'searching' : 'noRoute';
+    const states = framesAt(run.timeline, clock);
+    if (
+      states.some((f) => f.status === 'blocked') &&
+      states.every((f) => f.status === 'blocked' || f.status === 'arrived')
+    )
+      return 'blocked';
     if (clock < run.timeline.driveStart) return 'searching';
-    if (run.route.status === 'unreachable') return 'noRoute';
     return clock < run.timeline.end ? 'driving' : 'delivered';
-  }, [apiError, upload, routing, run, clock]);
+  }, [apiError, upload, routing, run, clock, rerouteCount]);
 
   const frames: CarFrame[] = useMemo(
     () => (run ? framesAt(run.timeline, clock) : []),
@@ -102,6 +155,9 @@ export function useSimulation(network: Network | null) {
   const clearRun = useCallback(() => {
     requestId.current++;
     setRouting(false);
+    setRerouting(false);
+    recalculating.current = false;
+    setRerouteCount(0);
     setRun(null);
     setApiError(null);
     clockRef.current = 0;
@@ -152,9 +208,30 @@ export function useSimulation(network: Network | null) {
     setClock(0);
     setPaused(false);
     try {
-      const route = await api.route({ disabledNodeIds: [], disabledLinkIds: [] });
+      const route = await api.route({
+        disabledNodeIds: [...disabledNodeIds],
+        disabledLinkIds: [...disabledLinkIds],
+      });
       if (id !== requestId.current) return;
-      const timeline = planRun(network, upload.packets, route, pos, Math.random);
+      const available = {
+        ...network,
+        links: network.links.filter(
+          (l) =>
+            !disabledLinkIds.has(l.id) &&
+            !disabledNodeIds.has(l.source) &&
+            !disabledNodeIds.has(l.target),
+        ),
+      };
+      const timeline =
+        route.status === 'unreachable'
+          ? blockedTimeline(
+              network,
+              upload.packets.cars,
+              pos,
+              route.visitOrder.length * BFS_STEP_SEC,
+            )
+          : planRun(available, upload.packets, route, pos, Math.random);
+      setRerouteCount(0);
       setRun({ route, timeline });
     } catch (e) {
       if (id !== requestId.current) return;
@@ -162,7 +239,52 @@ export function useSimulation(network: Network | null) {
     } finally {
       if (id === requestId.current) setRouting(false);
     }
-  }, [network, pos, upload]);
+  }, [network, pos, upload, disabledNodeIds, disabledLinkIds]);
+
+  const updateFailures = useCallback(
+    async (nodes: ReadonlySet<string>, links: ReadonlySet<string>) => {
+      if (!network || rerouting || routing) return;
+      setDisabledNodeIds(nodes);
+      setDisabledLinkIds(links);
+      if (!run || phase === 'delivered') return;
+      const id = ++requestId.current;
+      const now = clockRef.current;
+      recalculating.current = true;
+      setRerouting(true);
+      setApiError(null);
+      try {
+        const route = await api.route({
+          fromNodeId: network.clientId,
+          disabledNodeIds: [...nodes],
+          disabledLinkIds: [...links],
+        });
+        if (id !== requestId.current) return;
+        const timeline = retryTimeline(network, run.timeline, now, nodes, links, route, pos);
+        // The global route card can be unreachable while a group closer to the server still delivers.
+        setRun({ route, timeline });
+        setRerouteCount((n) => n + 1);
+      } catch (e) {
+        if (id === requestId.current)
+          setApiError(e instanceof Error ? e.message : 'Reroute failed');
+      } finally {
+        if (id === requestId.current) {
+          recalculating.current = false;
+          setRerouting(false);
+        }
+      }
+    },
+    [network, rerouting, routing, run, phase, pos],
+  );
+
+  const toggleFailure = (kind: 'node' | 'link', id: string) => {
+    const next = new Set(kind === 'node' ? disabledNodeIds : disabledLinkIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    void updateFailures(
+      kind === 'node' ? next : disabledNodeIds,
+      kind === 'link' ? next : disabledLinkIds,
+    );
+  };
 
   /** Back to the file input. */
   const changeFile = useCallback(() => {
@@ -175,10 +297,20 @@ export function useSimulation(network: Network | null) {
     clearRun();
     setUpload(null);
     setInputError(null);
+    setDisabledNodeIds(new Set());
+    setDisabledLinkIds(new Set());
   }, [clearRun]);
 
   return {
     phase,
+    elapsed: clock,
+    disabledNodeIds,
+    disabledLinkIds,
+    rerouting,
+    rerouteCount,
+    toggleFailure,
+    restoreAll: () => void updateFailures(new Set(), new Set()),
+    retry: () => (run ? void updateFailures(disabledNodeIds, disabledLinkIds) : void send()),
     upload,
     inputError,
     route: run?.route ?? null,

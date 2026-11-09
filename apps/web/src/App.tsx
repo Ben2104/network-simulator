@@ -9,6 +9,8 @@ import { useSimulation } from './sim/useSimulation';
 import { Banner, CameraControls, Footer, Header, Legend } from './ui/Chrome';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { countCars, describePhase } from './ui/copy';
+import { LiveNetwork } from './ui/LiveNetwork';
+import { TransferTiming } from './ui/TransferTiming';
 import { RouteCard, SendPlayback, YourFile } from './ui/Sidebar';
 
 const EMPTY: ReadonlySet<string> = new Set();
@@ -21,7 +23,7 @@ const sceneModule = webgl ? import('./scene3d/Scene') : null;
 const Scene = lazy(() => sceneModule ?? import('./scene3d/Scene'));
 
 const NO_WEBGL =
-  'The map needs WebGL, which this browser does not provide. Turn on hardware acceleration or try another browser. You can still submit files and toggle stations in the sidebar.';
+  'The map needs WebGL, which this browser does not provide. Turn on hardware acceleration or try another browser. You can still submit files and use playback and live network controls in the sidebar.';
 
 export function App() {
   const [network, setNetwork] = useState<Network | null>(null);
@@ -68,12 +70,46 @@ export function App() {
   const sim = useSimulation(network);
   const { phase, route, upload } = sim;
 
-  const showPath = route?.status === 'routed' && (phase === 'driving' || phase === 'delivered');
+  const showPath = phase === 'driving' || phase === 'delivered' || phase === 'blocked';
   const pathLinkIds = useMemo(
-    () => (showPath ? new Set(route.linkPath) : EMPTY),
-    [showPath, route],
+    () =>
+      showPath
+        ? new Set(
+            (sim.rerouteCount
+              ? (sim.timeline?.plans.flatMap((p) => p.route.linkIds) ?? [])
+              : (route?.linkPath ?? [])
+            ).filter((id) => {
+              const link = network?.links.find((l) => l.id === id);
+              return (
+                link &&
+                !sim.disabledLinkIds.has(id) &&
+                !sim.disabledNodeIds.has(link.source) &&
+                !sim.disabledNodeIds.has(link.target)
+              );
+            }),
+          )
+        : EMPTY,
+    [
+      showPath,
+      route,
+      sim.disabledLinkIds,
+      sim.disabledNodeIds,
+      sim.timeline,
+      sim.rerouteCount,
+      network,
+    ],
   );
-  const pathNodeIds = useMemo(() => (showPath ? new Set(route.path) : EMPTY), [showPath, route]);
+  const pathNodeIds = useMemo(
+    () =>
+      showPath
+        ? new Set(
+            sim.rerouteCount
+              ? (sim.timeline?.plans.flatMap((p) => p.route.nodeIds) ?? [])
+              : (route?.path ?? []),
+          )
+        : EMPTY,
+    [showPath, route, sim.timeline, sim.rerouteCount],
+  );
   const visitedNodeIds = useMemo(
     () => new Set(route?.visitOrder.slice(0, sim.visitedCount).map((s) => s.nodeId)),
     [route, sim.visitedCount],
@@ -85,7 +121,7 @@ export function App() {
     fileLabel: upload?.label ?? null,
     totalBytes: upload?.packets.totalBytes ?? 0,
     packetCount: upload?.packets.packetCount ?? 0,
-    hops: route ? route.path.length - 1 : 0,
+    hops: route ? Math.max(0, route.path.length - 1) : 0,
     visitedCount: sim.visitedCount,
     stationCount: network?.nodes.length ?? 0,
     cars: countCars(
@@ -106,14 +142,24 @@ export function App() {
     setWakeTry(1);
     setAttempt((a) => a + 1);
   };
-  const retry = loadError ? retryLoad : phase === 'error' ? sim.send : null;
+  const retry = loadError ? retryLoad : phase === 'error' ? sim.retry : null;
 
   return (
     <div className="shell">
       <Header />
       <Banner
-        tone={copy.tone}
-        text={banner}
+        tone={sim.frames.some((f) => f.status === 'blocked') ? 'danger' : copy.tone}
+        text={
+          sim.rerouting
+            ? 'Retrying affected groups from the sender · Finding a route around offline connections'
+            : loadError || phase === 'error'
+              ? banner
+              : sim.frames.some((f) => f.status === 'blocked')
+                ? `No route — transfer incomplete · ${sim.frames.filter((f) => f.status === 'blocked').length} groups waiting at sender. Restore a connection to retry.`
+                : phase === 'delivered' && sim.rerouteCount
+                  ? 'Delivered · All packet groups arrived after live rerouting'
+                  : banner
+        }
         right={
           retry ? (
             <button type="button" className="btn danger-solid" onClick={retry}>
@@ -137,7 +183,15 @@ export function App() {
                   <Suspense fallback={<LoadingScreen mapReady={false} serverReady attempt={1} />}>
                     <Scene
                       network={network}
+                      disabledNodeIds={sim.disabledNodeIds}
+                      disabledLinkIds={sim.disabledLinkIds}
+                      onToggleNode={(id) => sim.toggleFailure('node', id)}
                       phase={phase}
+                      counts={{
+                        arrived: sim.frames.filter((f) => f.status === 'arrived').length,
+                        blocked: sim.frames.filter((f) => f.status === 'blocked').length,
+                        waiting: carTotal - sim.frames.filter((f) => f.status !== 'waiting').length,
+                      }}
                       cars={upload?.packets.cars ?? NO_CARS}
                       route={route}
                       timeline={sim.timeline}
@@ -178,10 +232,26 @@ export function App() {
               phase={phase}
               paused={sim.paused}
               speed={sim.speed}
-              onSend={() => void sim.send()}
+              onSend={() => (phase === 'error' ? sim.retry() : void sim.send())}
+              busy={sim.rerouting}
               onPause={sim.togglePause}
               onReset={sim.reset}
               onSpeed={sim.setSpeed}
+            />
+            <LiveNetwork
+              network={network}
+              nodes={sim.disabledNodeIds}
+              links={sim.disabledLinkIds}
+              busy={sim.rerouting || phase === 'routing'}
+              changes={sim.rerouteCount}
+              onToggle={sim.toggleFailure}
+              onRestore={sim.restoreAll}
+            />
+            <TransferTiming
+              timeline={sim.timeline}
+              cars={upload?.packets.cars ?? NO_CARS}
+              now={sim.elapsed}
+              paused={sim.paused || sim.rerouting}
             />
             <RouteCard
               phase={phase}
@@ -194,7 +264,21 @@ export function App() {
         )}
       </div>
       {network || loadError ? (
-        <Footer text={copy.footer} hint={copy.footerHint} tone={copy.tone} />
+        <Footer
+          text={
+            sim.frames.some((f) => f.status === 'blocked')
+              ? `${sim.frames.filter((f) => f.status === 'arrived').length} / ${carTotal} groups delivered · ${sim.frames.filter((f) => f.status === 'blocked').length} waiting for a route`
+              : phase === 'blocked'
+                ? 'No route — transfer incomplete. Restore a connection to retry.'
+                : copy.footer
+          }
+          hint={
+            sim.rerouteCount
+              ? 'Affected groups are retried from the sender; delivered groups stay delivered'
+              : copy.footerHint
+          }
+          tone={copy.tone}
+        />
       ) : (
         <Footer text="Starting up · Loading the map and route server" hint="" tone="neutral" />
       )}

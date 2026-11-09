@@ -4,10 +4,11 @@ import { type Mesh, type MeshBasicMaterial, type MeshStandardMaterial } from 'th
 import { C } from './palette';
 import { distanceToLine, inLotArea, rng, type Lot, type Vec2 } from './world';
 
-export type StationState = 'idle' | 'visited' | 'path';
+export type StationState = 'idle' | 'visited' | 'path' | 'offline';
 
 interface Props {
   id: string;
+  onToggle?: () => void;
   pos: Vec2;
   state: StationState;
   /** Sim time this station is reached in the BFS replay, or null if it is not visited. */
@@ -27,6 +28,7 @@ const STATION_SCALE = 1.5;
 const PASS_SEC = 0.9;
 
 const STATE_COLOR: Record<StationState, string> = {
+  offline: C.danger,
   idle: C.primary,
   visited: C.explore,
   path: C.route,
@@ -100,7 +102,7 @@ export const Station = memo(function Station(props: Props) {
         break;
       }
     }
-    const lit = last >= 0;
+    const lit = last >= 0 && state !== 'offline';
     const passAge = lit ? t - last : Infinity;
     const passing = passAge < PASS_SEC ? 1 - passAge / PASS_SEC : 0;
     if (beacon.current) {
@@ -179,7 +181,12 @@ export const Station = memo(function Station(props: Props) {
       ))}
 
       <group scale={STATION_SCALE}>
-        <group>
+        <group
+          onClick={(e) => {
+            e.stopPropagation();
+            props.onToggle?.();
+          }}
+        >
           {/* Pad */}
           <mesh position-y={0.15} receiveShadow castShadow>
             <cylinderGeometry args={[2.6, 2.9, 0.3, 24]} />

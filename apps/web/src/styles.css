@@ -958,3 +958,100 @@ textarea {
     left: calc(50% - 13px);
   }
 }
+
+.fault-list {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+}
+.fault-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 12px;
+}
+.fault-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.fault-row .btn {
+  flex-shrink: 0;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.fault-offline {
+  color: var(--color-danger-text);
+  background: var(--color-danger-soft);
+}
+.card details {
+  margin-top: 12px;
+}
+.card summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.card details .fault-list {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.label3d.offline {
+  color: var(--color-danger-text);
+  border-color: var(--color-danger);
+}
+.timing-summary {
+  margin: 12px 0;
+}
+.timing-summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.timing-summary dt {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+.timing-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.timing-scroll {
+  max-height: 300px;
+  overflow: auto;
+}
+.timing-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.timing-table caption {
+  text-align: left;
+  padding: 8px 0;
+  color: var(--color-text-muted);
+}
+.timing-table th,
+.timing-table td {
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.timing-table th .hint {
+  display: block;
+  font-weight: 400;
+}
+.label3d[role='button'] {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.key.broken {
+  background: var(--color-danger);
+}
+.timing-table td .hint {
+  display: block;
+}

@@ -15,7 +15,7 @@ test('uploading a 5 MB file splits it into 12 cars and verifies the hash', async
   await expect(page.getByText('3,334 packets in 12 cars')).toBeAttached();
   await expect(page.getByText(/Verified in Oregon/)).toBeVisible();
   await expect(page.getByRole('img', { name: '12 of 24 cars used' })).toBeVisible();
-  await expect(page.getByText('client · 12 cars')).toBeAttached();
+  await expect(page.getByText('client · 12 groups at sender')).toBeAttached();
 });
 
 test('a file over 10 MB is refused before upload', async ({ page }) => {
