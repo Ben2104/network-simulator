@@ -14,10 +14,17 @@ outline.
 
 ## 3D models
 
-All 3D models (cars, stations, towns, parking lots, campus building, data center, trees, shrubs,
-cacti, rocks, peaks, lakes)
-are procedural three.js primitives written in `src/scene3d/`; there are no model files.
+| Asset                                                       | Source                                                                       | License | Used in                                          |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- | ------- | ------------------------------------------------ |
+| `sedan.glb` + `Textures/colormap.png`                       | [Kenney Car Kit](https://kenney.nl/assets/car-kit) 3.1                       | CC0 1.0 | `public/models/car/`, `src/scene3d/Cars.tsx`     |
+| `building-type-{a,c,f,h,k,n}.glb` + `Textures/colormap.png` | [Kenney City Kit (Suburban)](https://kenney.nl/assets/city-kit-suburban) 2.0 | CC0 1.0 | `public/models/city/`, `src/scene3d/Station.tsx` |
 
-Swapping in the Kenney Car Kit / City Kit (CC0) is tracked in #22. Model components keep their
-props, so a glTF loader can replace the primitives behind `Cars`, `Station` and `ParkingLot`
-without touching the scene. Record the kit name, version and download URL here when that lands.
+Copied unchanged from the kits' `Models/GLB format/` folders (the `.glb` files reference
+`Textures/colormap.png` next to them). Kenney's license: "You can use this content for personal,
+educational, and commercial purposes." Crediting Kenney (www.kenney.nl) is optional; we do.
+
+`scene3d/models.tsx` loads each file once. Every model has its procedural primitive as a fallback,
+shown while it loads and kept if the file is missing or broken, so the scene never depends on it.
+Cars split the sedan into paint (tinted per car), trim and wheels and keep one drei `<Instances>`
+per part. Lots (campus, data center), station pads, roads and scenery (trees, shrubs, cacti, rocks,
+peaks, lakes) are still procedural primitives in `src/scene3d/`.

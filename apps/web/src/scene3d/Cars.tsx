@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef, type RefObject } from 'react';
+import { memo, useMemo, useRef, type ReactNode, type RefObject } from 'react';
 import { Instance, Instances } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import {
@@ -7,12 +7,16 @@ import {
   CylinderGeometry,
   RingGeometry,
   OctahedronGeometry,
+  BufferGeometry,
+  Box3,
+  Mesh,
   Vector3,
-  type BufferGeometry,
+  type Material,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { Car } from '@netsim/shared';
+import { ModelOr, modelUrl } from './models';
 import { CAR_COLORS, C } from './palette';
 import { parkedPose, poseAt, type CarPath, type Pose, type World } from './world';
 
@@ -20,6 +24,10 @@ import { parkedPose, poseAt, type CarPath, type Pose, type World } from './world
 export const CAR_Y = 0.1;
 /** Index of the wheels in the per-part instance refs (body, glass, wheels, lights). */
 const WHEELS = 2;
+/** Car length in world units; the Kenney model is scaled to match the primitive hatchback. */
+const CAR_LENGTH = 2.4;
+/** Kenney Car Kit sedan. Every car shares it so each part stays one `<Instances>` draw call. */
+const CAR_MODEL = modelUrl('car/sedan');
 
 function box(w: number, h: number, d: number, x: number, y: number, z: number): BufferGeometry {
   return new BoxGeometry(w, h, d).translate(x, y, z);
@@ -65,6 +73,96 @@ function carGeometries() {
   return { body, glass, wheels, lights, beacon, stalk, halo };
 }
 
+/**
+ * Splits a Kenney car into instanceable parts, in the same frame as the primitive car (facing +x,
+ * wheels on y = 0, CAR_LENGTH long). Kenney cars face +z and colour everything through one palette
+ * texture; the body paint is the texture's second row (v in [0.25, 0.5)), so those triangles become
+ * the `paint` part tinted per car, and the rest (windows, lights, trim) keeps the texture.
+ */
+export function carModelParts(scene: Object3D) {
+  scene.updateMatrixWorld(true);
+  const paint: BufferGeometry[] = [];
+  const trim: BufferGeometry[] = [];
+  const wheels: BufferGeometry[] = [];
+  let material: Material | null = null;
+  scene.traverse((o) => {
+    if (!(o instanceof Mesh)) return;
+    material ??= o.material as Material;
+    const g = (o.geometry as BufferGeometry).toNonIndexed().applyMatrix4(o.matrixWorld);
+    for (const name of ['tangent', 'color']) g.deleteAttribute(name);
+    if (/wheel/i.test(o.name)) {
+      wheels.push(g);
+      return;
+    }
+    const [p, t] = splitByUv(g, (v) => v >= 0.25 && v < 0.5);
+    paint.push(p);
+    trim.push(t);
+  });
+  if (!material || !paint.length || !wheels.length)
+    throw new Error('Car model needs a body and wheel meshes.');
+  const merged = {
+    paint: mergeGeometries(paint)!,
+    trim: mergeGeometries(trim)!,
+    wheels: mergeGeometries(wheels)!,
+  };
+  const all = mergeGeometries([merged.paint, merged.trim, merged.wheels])!;
+  const box = new Box3().setFromBufferAttribute(all.getAttribute('position') as BufferAttribute);
+  const s = CAR_LENGTH / (box.max.z - box.min.z);
+  const cx = (box.max.x + box.min.x) / 2;
+  const cz = (box.max.z + box.min.z) / 2;
+  for (const g of Object.values(merged))
+    g.translate(-cx, -box.min.y, -cz)
+      .scale(s, s, s)
+      .rotateY(Math.PI / 2);
+  all.dispose();
+  return { ...merged, material: material! };
+}
+
+/** Splits a non-indexed geometry into triangles whose UV centroid passes `test`, and the rest. */
+function splitByUv(
+  g: BufferGeometry,
+  test: (v: number) => boolean,
+): [BufferGeometry, BufferGeometry] {
+  const uv = g.getAttribute('uv');
+  const names = Object.keys(g.attributes);
+  const keep: number[][] = [[], []];
+  for (let i = 0; i < uv.count; i += 3) {
+    const v = (uv.getY(i) + uv.getY(i + 1) + uv.getY(i + 2)) / 3;
+    keep[test(v) ? 0 : 1]!.push(i);
+  }
+  return keep.map((tris) => {
+    const out = new BufferGeometry();
+    for (const name of names) {
+      const a = g.getAttribute(name);
+      const data = new Float32Array(tris.length * 3 * a.itemSize);
+      tris.forEach((start, k) => {
+        for (let j = 0; j < 3; j++)
+          for (let c = 0; c < a.itemSize; c++)
+            data[(k * 3 + j) * a.itemSize + c] = a.getComponent(start + j, c);
+      });
+      out.setAttribute(name, new BufferAttribute(data, a.itemSize));
+    }
+    return out;
+  }) as [BufferGeometry, BufferGeometry];
+}
+
+/** Builds the model's parts once per loaded scene and hands them to `render`. */
+function ModelCar({
+  scene,
+  render,
+}: {
+  scene: Object3D;
+  render: (parts: ReturnType<typeof carModelParts>) => ReactNode;
+}) {
+  const parts = useMemo(() => carModelParts(scene), [scene]);
+  return <>{render(parts)}</>;
+}
+
+/** Moves the DOM tooltip to a screen point (outside the component: it writes to the DOM). */
+function placeTip(tip: HTMLElement, x: number, y: number) {
+  tip.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -120%)`;
+}
+
 interface Props {
   cars: readonly Car[];
   /** One path per car once a route exists; null while parked before Send or with no route. */
@@ -87,7 +185,7 @@ type Ref = Object3D | null;
  */
 export const Cars = memo(function Cars(props: Props) {
   const { cars, paths, world, clockRef, hover, onHover, tipEl } = props;
-  const geo = useMemo(carGeometries, []);
+  const geo = useMemo(() => carGeometries(), []);
   const parts = useRef<Ref[][]>([[], [], [], []]);
   const beacons = useRef<Ref[]>([]);
   const stalks = useRef<Ref[]>([]);
@@ -152,7 +250,7 @@ export const Cars = memo(function Cars(props: Props) {
       v.set(p.x, 2, p.z).project(camera);
       const sx = ((v.x + 1) / 2) * size.width;
       const sy = ((1 - v.y) / 2) * size.height;
-      tip.style.transform = `translate(${Math.round(sx)}px, ${Math.round(sy)}px) translate(-50%, -120%)`;
+      placeTip(tip, sx, sy);
     }
   });
 
@@ -168,19 +266,22 @@ export const Cars = memo(function Cars(props: Props) {
       />
     ));
 
-  return (
-    <group>
+  const bodyEvents = (car: Car, i: number) => ({
+    color: color(car.seq),
+    onPointerOver: (e: { stopPropagation: () => void }) => {
+      e.stopPropagation();
+      onHover(i);
+    },
+    onPointerOut: () => onHover(null),
+  });
+
+  // Primitive hatchback: shown while the Kenney model loads and kept if it fails.
+  const primitiveCar = (
+    <>
       <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
         <primitive object={geo.body} attach="geometry" />
         <meshStandardMaterial roughness={0.35} metalness={0.25} />
-        {instances(0, (car, i) => ({
-          color: color(car.seq),
-          onPointerOver: (e: { stopPropagation: () => void }) => {
-            e.stopPropagation();
-            onHover(i);
-          },
-          onPointerOut: () => onHover(null),
-        }))}
+        {instances(0, bodyEvents)}
       </Instances>
       <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.glass} attach="geometry" />
@@ -197,6 +298,38 @@ export const Cars = memo(function Cars(props: Props) {
         <meshBasicMaterial vertexColors toneMapped={false} />
         {instances(3)}
       </Instances>
+    </>
+  );
+
+  return (
+    <group>
+      <ModelOr url={CAR_MODEL} fallback={primitiveCar}>
+        {(scene) => (
+          <ModelCar
+            scene={scene}
+            render={(m) => (
+              <>
+                {/* Paint in the car's colour; trim and wheels keep the kit's palette texture. */}
+                <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
+                  <primitive object={m.paint} attach="geometry" />
+                  <meshStandardMaterial roughness={0.35} metalness={0.25} />
+                  {instances(0, bodyEvents)}
+                </Instances>
+                <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
+                  <primitive object={m.trim} attach="geometry" />
+                  <primitive object={m.material} attach="material" />
+                  {instances(1)}
+                </Instances>
+                <Instances limit={24} range={cars.length} frustumCulled={false}>
+                  <primitive object={m.wheels} attach="geometry" />
+                  <primitive object={m.material} attach="material" />
+                  {instances(2)}
+                </Instances>
+              </>
+            )}
+          />
+        )}
+      </ModelOr>
       <Instances limit={24} range={cars.length} frustumCulled={false}>
         <primitive object={geo.stalk} attach="geometry" />
         <meshBasicMaterial color="#ffffff" transparent opacity={0.7} toneMapped={false} />
