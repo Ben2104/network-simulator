@@ -41,7 +41,7 @@ test('clicking a road does not toggle a router or a road', async ({ page }) => {
   await expect(page.locator('.label3d.offline')).toHaveCount(0);
 });
 
-test('partial delivery plus a full outage keeps rendered cars, counts and frozen timers in sync', async ({
+test('groups past a failed router finish while later groups block, with rendered cars and timers in sync', async ({
   page,
 }) => {
   test.setTimeout(120_000);
@@ -78,14 +78,15 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
     .toBe(true);
   const delivered = await page.evaluate(() => {
     const debug = (window as Window & { __packetHighway?: SimulationDebug }).__packetHighway!;
-    const firstArrival = Math.min(...debug.arrivals);
-    const lastArrival = Math.max(...debug.arrivals);
-    if (!(lastArrival > firstArrival)) throw new Error('Expected staggered group arrivals');
-    const partialTime = firstArrival + Math.min(0.05, (lastArrival - firstArrival) / 2);
-    debug.seek(partialTime);
-    return debug.arrivals.filter((at) => at <= partialTime).length;
+    const firstPass = Math.min(
+      ...debug.plans.map((p) => p.nodeTimes![p.route.nodeIds.indexOf('san-jose')]!),
+    );
+    const now = firstPass + 0.01;
+    debug.seek(now);
+    return debug.plans.filter((p) => p.nodeTimes![p.route.nodeIds.indexOf('san-jose')]! < now)
+      .length;
   });
-  await expect(timing.locator('dd').nth(2)).toHaveText(`${delivered} / 24`);
+  await expect(timing.locator('dd').nth(2)).toHaveText('0 / 24');
   expect(delivered).toBeGreaterThan(0);
   expect(delivered).toBeLessThan(24);
   const live = page.getByRole('region', { name: 'Live network failures' });
@@ -96,6 +97,26 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
     expect((await reroute).ok()).toBe(true);
     await expect(live).toContainText(`${i + 1} route updates`);
   }
+  await expect(page.locator('.state-chip')).toContainText('DRIVING');
+  // A failed router behind the lead must not hide the online road the lead is still using.
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (window as unknown as { __r3f: import('@react-three/fiber').RootState })
+          .__r3f;
+        const roads: Record<string, string> = {};
+        state.scene.traverse((o) => {
+          if (['san-jose--oakland', 'csulb--el-segundo'].includes(o.userData.roadId))
+            roads[o.userData.roadId] = o.userData.state;
+        });
+        return roads;
+      }),
+    )
+    .toEqual({ 'san-jose--oakland': 'path', 'csulb--el-segundo': 'idle' });
+  await page.evaluate(() => {
+    const debug = (window as Window & { __packetHighway?: SimulationDebug }).__packetHighway!;
+    debug.seek(Math.max(...debug.arrivals));
+  });
   await expect(page.locator('.state-chip')).toContainText('BLOCKED');
   await expect(page.locator('.banner')).toContainText('No route — transfer incomplete');
   await expect(timing.locator('dd').nth(2)).toHaveText(`${delivered} / 24`);
@@ -128,6 +149,19 @@ test('partial delivery plus a full outage keeps rendered cars, counts and frozen
       };
     })
     .toEqual({ total: 24, arrived: delivered, blocked: 24 - delivered });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = (window as unknown as { __r3f: import('@react-three/fiber').RootState })
+          .__r3f;
+        let active = 0;
+        state.scene.traverse((o) => {
+          if (o.userData.roadId && o.userData.state === 'path') active++;
+        });
+        return active;
+      }),
+    )
+    .toBe(0);
   const rendered = await readRendered();
   expect(rendered).toHaveLength(24);
   expect(rendered.filter((p) => p.status === 'arrived')).toHaveLength(delivered);

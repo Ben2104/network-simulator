@@ -2,7 +2,7 @@
 
 Submit a file at the **CSULB parking lot**. It is split into packets, shown as 3D **cars**.
 Choose **BFS** (fewest hops) or **Dijkstra** (lowest configured cost), then press **Send** to search the West Coast network of **stations** (routers),
-then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch affected unfinished groups retry from the sender using the selected algorithm. Restore connections to release blocked groups. The Transfer timing card shows simulated group and total completion times.
+then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch only groups that have not passed the failure retry from the sender. Groups already past it continue. Restore connections to release blocked groups and reoptimize moving groups from their next router. Orange roads track remaining group paths. The Transfer timing card shows simulated group and total completion times.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
 > illustrative, not real ISP topology. The app does not inspect, control, or route real network

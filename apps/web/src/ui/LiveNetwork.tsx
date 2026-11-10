@@ -68,11 +68,13 @@ export function LiveNetwork(props: {
         on the map are not clickable. Hover a road or router below to highlight it on the map.
       </p>
       <p className="hint small">
-        An offline connection interrupts affected groups that have not arrived yet. They are retried
+        An offline connection interrupts only groups that have not passed it. Those groups retry
         from the sender over a new{' '}
         {props.algorithm === 'dijkstra' ? 'minimum-cost Dijkstra' : 'fewest-hop BFS'} route. If none
-        exists, delivery is incomplete until you restore connectivity. Delivered groups remain
-        delivered. This is a simplified simulation, not OSPF.
+        exists, delivery is incomplete until you restore connectivity. Groups already past the
+        failure keep going. Reopening a connection recalculates waiting groups from the sender and
+        moving groups from their next router, without sending them backwards to the lot. Delivered
+        groups remain delivered. This is a simplified simulation, not OSPF.
       </p>
       <p role="status">
         {props.busy

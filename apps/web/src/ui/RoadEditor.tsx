@@ -43,7 +43,7 @@ export function RoadEditor(props: {
               </>
             )}
           </span>
-          {props.onRoute && <span className="hint small route-text">On displayed route</span>}
+          {props.onRoute && <span className="hint small route-text">On an active group route</span>}
         </div>
         <div className="road-actions">
           <button

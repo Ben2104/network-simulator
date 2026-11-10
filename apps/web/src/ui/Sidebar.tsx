@@ -180,6 +180,7 @@ export function SendPlayback(props: {
 }
 
 export function RouteCard(props: {
+  live?: boolean;
   phase: Phase;
   algorithm: RoutingAlgorithm;
   network: Network;
@@ -221,6 +222,13 @@ export function RouteCard(props: {
           <span className="badge muted">0 hops</span>
         )}
       </div>
+      {props.live && (
+        <p className="hint small">
+          Latest calculated best route from the sender. In-flight groups may finish on another
+          route; orange roads show remaining active paths. See each group's hops and time in
+          Transfer timing.
+        </p>
+      )}
       <p className="hint">
         {weighted
           ? 'Dijkstra = lowest total configured link cost, not necessarily fewest hops.'

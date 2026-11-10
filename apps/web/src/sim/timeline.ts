@@ -33,6 +33,10 @@ export interface CarPlan {
   cum: number[];
   departAt: number;
   arriveAt: number;
+  /** Actual rendered router crossing times, populated by the simulation scheduler. */
+  nodeTimes?: number[];
+  /** Preserve movement until reaching this node, then use the new suffix without a retry. */
+  handoff?: { plan: CarPlan; at: number; nodeIndex: number };
   /** Previous attempt retained only for timing; replacement copies restart at the sender. */
   previous?: CarPlan;
   interruptedAt?: number;
@@ -115,6 +119,20 @@ export function carStatus(
 }
 
 export function carFrame(plan: CarPlan, t: number): CarFrame {
+  if (plan.handoff) {
+    if (t < plan.handoff.at) return carFrame(plan.handoff.plan, t);
+    const k = plan.handoff.nodeIndex;
+    return carFrame(
+      {
+        ...plan,
+        handoff: undefined,
+        points: plan.points.slice(k),
+        cum: plan.cum.slice(k).map((d) => d - plan.cum[k]!),
+        departAt: plan.handoff.at,
+      },
+      t,
+    );
+  }
   if (plan.blocked) {
     const p = plan.points[0]!;
     return {

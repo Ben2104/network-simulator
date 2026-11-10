@@ -257,26 +257,42 @@ stranded groups instead enter `blocked`; restoring connectivity resumes them aut
 
 ### Live failures, retries and timing
 
-The browser owns failure sets and calls the existing stateless `/route` API from the sender.
+The browser owns failure sets and calls the existing stateless `/route` API from the sender,
+and (on restoration) from each distinct next-router anchor. Requests with the same start share a reply.
 Only **router hardware and router labels** are clickable on the 3D map. Roads are not clickable;
 road failures use the sidebar switches. Town scenery, visit rings and pass effects do not toggle
 routers. Endpoints cannot be disabled. The clock freezes immediately during API requests;
 Reset/new input invalidates pending replies and the user's pause setting is preserved.
 
-This is a simplified **routing retry model**, not OSPF or a physical network measurement. When a
-connection goes offline, every affected group that has not reached the destination is discarded
-and retried from its original sender slot over a path from the selected algorithm, excluding **all** offline elements.
-This includes unacknowledged groups that already passed the failed router in their current
-attempt. There is no exception allowing an offline starting router to forward. The replacement
-copy at the sender represents retransmission, not the same car physically driving backwards.
-Unchanged groups continue, and confirmed deliveries keep their positions and arrival timestamps.
-Both initial sends and retries use the selected algorithm’s route for every group.
+This is a simplified **progress-aware routing model**, not OSPF or a physical network measurement.
+Router crossing times come from the same eased, curved movement used by the 3D renderer. A router
+failure interrupts groups that have not passed it (including a group exactly at the router).
+A road failure interrupts groups still on or approaching that road; a road is completed at its
+far endpoint. Groups already past the failed element continue unchanged, even when the sender
+no longer has a route. Only affected groups retry from their sender slot, excluding all outages.
+Delivered groups keep their positions and arrival timestamps.
+
+When a connection reopens, queued/blocked groups choose the current best sender route. Moving
+groups finish their current road, then follow the selected algorithm's best route from the next
+router. Their already-travelled prefix and movement up to that junction remain unchanged; this
+is not a retry and does not reset travel time or add a retry count. A route only returns to the
+original corridor when it is optimal and reachable from that group’s next router. There is no
+forced teleport/backtrack to the original source route. BFS minimizes remaining hops; Dijkstra
+minimizes remaining configured cost, with the same bandwidth settings as the initial Send.
+
+Orange roads are the union of **remaining** paths for moving/queued groups, including their
+current road. Segments disappear after every group clears them; old completed routes and blocked
+groups do not keep them orange. An online outgoing road may remain orange even if its starting
+router failed after a car already left it. Offline styling takes precedence on failed elements.
+The route card describes the latest calculated best **sender** route, not one shared hop count
+for every group after a live update. The timing table reports completed hops across attempts and
+remaining hops on each current route.
 
 If no source-to-destination path exists, affected groups remain at their sender slots with
 `blocked` status. A red **No route — transfer incomplete** notice identifies pending groups;
 the total is not reported as a completed transfer. A Send that starts disconnected also has a
 blocked plan for every group, so map counts and sidebar counts cannot disagree. Restoring a
-connection automatically retries waiting groups. Renderer, footer, totals and table share the
+connection automatically releases blocked groups and reoptimizes the other unfinished groups. Renderer, footer, totals and table share the
 same `carStatus()` function. Source/destination labels display current waiting/delivered counts;
 blocked groups have red beacons/halos at the sender.
 

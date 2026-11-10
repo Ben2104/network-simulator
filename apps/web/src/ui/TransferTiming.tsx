@@ -1,5 +1,6 @@
 import type { Car } from '@netsim/shared';
 import { groupTravelTime, transferTiming } from '../sim/reroute';
+import { groupHops } from '../sim/progress';
 import { carStatus, type Timeline } from '../sim/timeline';
 
 const seconds = (n: number) => `${Math.max(0, n).toFixed(2)} s`;
@@ -46,7 +47,10 @@ export function TransferTiming(props: {
           </p>
           <div className="timing-scroll" tabIndex={0} role="region" aria-label="Packet group times">
             <table className="timing-table">
-              <caption>Active travel time across attempts; blocked waits excluded</caption>
+              <caption>
+                Active travel time across attempts; blocked waits excluded. Hops count completed
+                roads across attempts and roads remaining on the current route.
+              </caption>
               <thead>
                 <tr>
                   <th scope="col">Group / packets</th>
@@ -69,6 +73,12 @@ export function TransferTiming(props: {
                       </th>
                       <td>
                         {status === 'blocked' ? 'No route — waiting at sender' : status}
+                        {plan && (
+                          <span className="hint small">
+                            Hops: {groupHops(plan, now).completed} completed ·{' '}
+                            {groupHops(plan, now).remaining} remaining
+                          </span>
+                        )}
                         {!!plan?.retries && (
                           <span className="hint small">Retries: {plan.retries}</span>
                         )}

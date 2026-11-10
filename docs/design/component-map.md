@@ -68,3 +68,8 @@ for that run. The total includes a per-road sum; each link cost is the differenc
 settled costs of adjacent path nodes. Blue chips show the search settlement order, including
 other candidate nodes. The “+N more” button expands the full visited list and “Show less” collapses
 it; a new route starts collapsed. BFS retains hop counts and its FIFO list without cost labels.
+
+Live updates: the route card describes the latest best sender route. Orange map roads track the
+union of remaining group routes, clearing completed segments. Transfer timing shows each group's
+completed hops across attempts and remaining hops; restoration preserves active time and changes
+only the route after its next router.

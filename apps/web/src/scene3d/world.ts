@@ -132,6 +132,8 @@ export function lotSlot(lot: Lot, seq: number): { slot: Vec2; aisle: Vec2 } {
 export const headingOf = (d: Vec2) => Math.atan2(-d.z, d.x);
 
 export interface CarPath {
+  previous?: CarPath;
+  switchAt?: number;
   blocked?: boolean;
   seq: number;
   pts: Vec2[];
@@ -254,9 +256,12 @@ export function carPath(world: World, network: Network, plan: CarPlan): CarPath 
       blocked: true,
     };
   }
+  const previous = plan.handoff ? carPath(world, network, plan.handoff.plan) : undefined;
+  const fromIndex = plan.handoff?.nodeIndex ?? 0;
   const linkById = new Map(network.links.map((l) => [l.id, l]));
   const road: Vec2[] = [];
-  plan.route.linkIds.forEach((id, i) => {
+  plan.route.linkIds.slice(fromIndex).forEach((id, j) => {
+    const i = j + fromIndex;
     const curve = world.roads.get(id)!;
     const forward = linkById.get(id)!.source === plan.route.nodeIds[i];
     const seg = forward ? curve : [...curve].reverse();
@@ -265,8 +270,7 @@ export function carPath(world: World, network: Network, plan: CarPlan): CarPath 
   const start = lotSlot(world.client, plan.seq);
   const end = lotSlot(world.server, plan.seq);
   const pts = smoothCorners([
-    start.slot,
-    start.aisle,
+    ...(previous && plan.handoff ? [poseAt(previous, plan.handoff.at)] : [start.slot, start.aisle]),
     ...offsetLine(road, LANE_OFFSET),
     end.aisle,
     end.slot,
@@ -283,7 +287,9 @@ export function carPath(world: World, network: Network, plan: CarPlan): CarPath 
     cum,
     speed,
     tcum,
-    departAt: plan.departAt,
+    previous,
+    switchAt: plan.handoff?.at,
+    departAt: plan.handoff?.at ?? plan.departAt,
     arriveAt: plan.arriveAt,
   };
 }
@@ -359,6 +365,8 @@ const MAX_PITCH = 0.035;
  * the body leans out of turns and pitches with acceleration.
  */
 export function poseAt(path: CarPath, t: number): Pose {
+  if (path.previous && path.switchAt !== undefined && t < path.switchAt)
+    return poseAt(path.previous, t);
   if (path.blocked) return { ...path.pts[0]!, heading: 0, roll: 0, pitch: 0, status: 'blocked' };
   const total = path.cum[path.cum.length - 1]!;
   const span = Math.max(path.arriveAt - path.departAt, 1e-6);
@@ -439,7 +447,9 @@ export function passTime(path: CarPath, at: Vec2): number {
 export function leadCar(paths: readonly CarPath[], t: number): number {
   let best = -1;
   let bestF = -1;
-  paths.forEach((p, i) => {
+  paths.forEach((path, i) => {
+    let p = path;
+    while (p.previous && p.switchAt !== undefined && t < p.switchAt) p = p.previous;
     if (t < p.departAt || t >= p.arriveAt) return;
     const f = (t - p.departAt) / (p.arriveAt - p.departAt);
     if (f > bestF) {

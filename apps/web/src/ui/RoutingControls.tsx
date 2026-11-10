@@ -27,8 +27,8 @@ export function RoutingControls(props: {
       </div>
       <p className="hint">
         {props.algorithm === 'bfs'
-          ? 'BFS chooses the fewest hops. All groups follow the selected route.'
-          : 'Dijkstra minimizes total cost, not hop count. All groups follow the chosen minimum-cost route.'}
+          ? 'BFS chooses the fewest remaining hops. Live updates can give groups different routes.'
+          : 'Dijkstra minimizes remaining configured cost, not hop count. Live updates can give groups different routes.'}
       </p>
       {props.algorithm === 'dijkstra' && (
         <p className="hint small">

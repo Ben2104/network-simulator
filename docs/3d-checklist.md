@@ -47,3 +47,10 @@ without a discrete GPU).
       "3D view needs WebGL…" and the 3D button disabled; no console errors.
 - [ ] With "reduce motion" on in the OS, the app opens in 2D; 3D is still selectable.
 - [ ] Frame rate stays smooth (≥ 50 fps) with 24 cars on a laptop (DevTools → Performance).
+
+- Fail a router between two groups: the lead keeps its position/timing, the trailing group retries
+  from CSULB. Failing an already completed road does not affect the lead.
+- Restore a preferred corridor mid-transfer: queued groups use the best sender route; moving
+  groups change direction at their next router without jumping. No extra retry or timer reset.
+- Orange segments disappear once the last active group clears them. Per-group completed/remaining
+  hops and total completion time agree with the new plans.
