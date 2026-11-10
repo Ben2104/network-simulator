@@ -26,5 +26,6 @@ educational, and commercial purposes." Crediting Kenney (www.kenney.nl) is optio
 `scene3d/models.tsx` loads each file once. Every model has its procedural primitive as a fallback,
 shown while it loads and kept if the file is missing or broken, so the scene never depends on it.
 Cars split the sedan into paint (tinted per car), trim and wheels and keep one drei `<Instances>`
-per part. Lots (campus, data center), station pads, roads and scenery (trees, shrubs, cacti, rocks,
+per part. Station towns show the houses only within 220 units of the camera and the primitive
+boxes further out, which keeps the overview (and software-rendered CI) as fast as before. Lots (campus, data center), station pads, roads and scenery (trees, shrubs, cacti, rocks,
 peaks, lakes) are still procedural primitives in `src/scene3d/`.

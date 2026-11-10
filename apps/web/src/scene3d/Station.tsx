@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Clone } from '@react-three/drei';
+import { Clone, Detailed } from '@react-three/drei';
 import { type Mesh, type MeshBasicMaterial, type MeshStandardMaterial } from 'three';
 import { ModelOr, modelUrl } from './models';
 import { C } from './palette';
@@ -33,6 +33,8 @@ const PASS_SEC = 0.9;
 const HOUSES = ['a', 'c', 'f', 'h', 'k', 'n'].map((t) => modelUrl(`city/building-type-${t}`));
 /** Kenney houses are about 1.2 units across; scale them to the town's footprint. */
 const HOUSE_SIZE = 1.2;
+/** Camera distance beyond which a town drops back to primitive boxes. */
+const HOUSE_DETAIL_DISTANCE = 220;
 
 const STATE_COLOR: Record<StationState, string> = {
   offline: C.danger,
@@ -78,6 +80,18 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][], lots: readonly
     }
     return out;
   }, [id, pos, roads, lots]);
+}
+
+type TownBuilding = ReturnType<typeof useTown>[number];
+
+/** Primitive town building: the far level of detail and the fallback for a missing house. */
+function TownBox({ b }: { b: TownBuilding }) {
+  return (
+    <mesh position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
+      <boxGeometry args={[b.w, b.h, b.d]} />
+      <meshStandardMaterial color={b.alt ? C.building : C.buildingAlt} roughness={0.8} />
+    </mesh>
+  );
 }
 
 /**
@@ -192,29 +206,31 @@ export const Station = memo(function Station(props: Props) {
           toneMapped={false}
         />
       </mesh>
-      {town.map((b, i) => (
-        <ModelOr
-          key={i}
-          url={b.house}
-          fallback={
-            <mesh position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
-              <boxGeometry args={[b.w, b.h, b.d]} />
-              <meshStandardMaterial color={b.alt ? C.building : C.buildingAlt} roughness={0.8} />
-            </mesh>
-          }
-        >
-          {(scene) => (
-            <Clone
-              object={scene}
-              position={[b.x, 0, b.z]}
-              rotation-y={b.rot}
-              scale={(b.w + b.d) / 2 / HOUSE_SIZE}
-              castShadow
-              receiveShadow
-            />
-          )}
-        </ModelOr>
-      ))}
+      {/* Kenney houses up close; the primitive boxes from further out, where a house is a few
+          pixels but would cost ~1,200 triangles (and a shadow pass) each. */}
+      <Detailed distances={[0, HOUSE_DETAIL_DISTANCE]}>
+        <group>
+          {town.map((b, i) => (
+            <ModelOr key={i} url={b.house} fallback={<TownBox b={b} />}>
+              {(scene) => (
+                <Clone
+                  object={scene}
+                  position={[b.x, 0, b.z]}
+                  rotation-y={b.rot}
+                  scale={(b.w + b.d) / 2 / HOUSE_SIZE}
+                  castShadow
+                  receiveShadow
+                />
+              )}
+            </ModelOr>
+          ))}
+        </group>
+        <group>
+          {town.map((b, i) => (
+            <TownBox key={i} b={b} />
+          ))}
+        </group>
+      </Detailed>
 
       <group scale={STATION_SCALE}>
         <group
