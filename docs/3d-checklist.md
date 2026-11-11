@@ -58,3 +58,12 @@ without a discrete GPU).
   groups change direction at their next router without jumping. No extra retry or timer reset.
 - Orange segments disappear once the last active group clears them. Per-group completed/remaining
   hops and total completion time agree with the new plans.
+
+## Depth / flicker regression
+
+- Orbit and pan at near, overview and maximum zoom, including the lowest allowed angle: land
+  stays above the sea without alternating blue strips or missing terrain wedges.
+- After traffic passes, orange discs remain whole; search/pass rings stay readable over the ground.
+- Idle/route/offline/preview roads remain continuous when far away. Up close, idle lane paint
+  remains visible and cars/buildings still occlude road and halo overlays normally.
+- Repeat with the Kenney models blocked to verify the primitive fallback as well.
