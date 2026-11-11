@@ -266,14 +266,14 @@ export const Cars = memo(function Cars(props: Props) {
       />
     ));
 
-  const bodyEvents = (car: Car, i: number) => ({
-    color: color(car.seq),
+  const hoverEvents = (_car: Car, i: number) => ({
     onPointerOver: (e: { stopPropagation: () => void }) => {
       e.stopPropagation();
       onHover(i);
     },
     onPointerOut: () => onHover(null),
   });
+  const bodyEvents = (car: Car, i: number) => ({ color: color(car.seq), ...hoverEvents(car, i) });
 
   // Primitive hatchback: shown while the Kenney model loads and kept if it fails.
   const primitiveCar = (
@@ -309,7 +309,8 @@ export const Cars = memo(function Cars(props: Props) {
             scene={scene}
             render={(m) => (
               <>
-                {/* Paint in the car's colour; trim and wheels keep the kit's palette texture. */}
+                {/* Paint in the car's colour; trim and wheels keep the kit's palette texture. Every part
+                    shows the car's tooltip on hover. */}
                 <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
                   <primitive object={m.paint} attach="geometry" />
                   <meshStandardMaterial roughness={0.35} metalness={0.25} />
@@ -318,12 +319,12 @@ export const Cars = memo(function Cars(props: Props) {
                 <Instances limit={24} range={cars.length} frustumCulled={false} castShadow>
                   <primitive object={m.trim} attach="geometry" />
                   <primitive object={m.material} attach="material" />
-                  {instances(1)}
+                  {instances(1, hoverEvents)}
                 </Instances>
                 <Instances limit={24} range={cars.length} frustumCulled={false}>
                   <primitive object={m.wheels} attach="geometry" />
                   <primitive object={m.material} attach="material" />
-                  {instances(2)}
+                  {instances(2, hoverEvents)}
                 </Instances>
               </>
             )}
