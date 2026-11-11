@@ -57,7 +57,7 @@ export const Road = memo(function Road({ curve, state, previewed, id }: Props) {
   });
 
   return (
-    <group userData={{ roadId: id, previewed }}>
+    <group userData={{ roadId: id, previewed, state }}>
       {previewed && (
         <group>
           <Line

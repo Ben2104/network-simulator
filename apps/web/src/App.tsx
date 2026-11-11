@@ -6,6 +6,7 @@ import type { CameraMode, RigApi } from './scene3d/CameraRig';
 import { SceneBoundary } from './scene3d/SceneBoundary';
 import { hasWebGL } from './scene3d/webgl';
 import { useSimulation } from './sim/useSimulation';
+import { remainingLinks } from './sim/progress';
 import { Banner, CameraControls, Footer, Header, Legend } from './ui/Chrome';
 import { LoadingScreen } from './ui/LoadingScreen';
 import { countCars, describePhase } from './ui/copy';
@@ -81,40 +82,23 @@ export function App() {
     () =>
       showPath
         ? new Set(
-            (sim.rerouteCount
-              ? (sim.timeline?.plans.flatMap((p) => p.route.linkIds) ?? [])
-              : (route?.linkPath ?? [])
-            ).filter((id) => {
-              const link = network?.links.find((l) => l.id === id);
-              return (
-                link &&
-                !sim.disabledLinkIds.has(id) &&
-                !sim.disabledNodeIds.has(link.source) &&
-                !sim.disabledNodeIds.has(link.target)
-              );
-            }),
+            (sim.timeline?.plans.flatMap((p) => remainingLinks(p, sim.elapsed)) ?? []).filter(
+              (id) => {
+                const link = network?.links.find((l) => l.id === id);
+                return link && !sim.disabledLinkIds.has(id);
+              },
+            ),
           )
         : EMPTY,
-    [
-      showPath,
-      route,
-      sim.disabledLinkIds,
-      sim.disabledNodeIds,
-      sim.timeline,
-      sim.rerouteCount,
-      network,
-    ],
+    [showPath, sim.timeline, sim.elapsed, sim.disabledLinkIds, network],
   );
   const pathNodeIds = useMemo(
     () =>
-      showPath
-        ? new Set(
-            sim.rerouteCount
-              ? (sim.timeline?.plans.flatMap((p) => p.route.nodeIds) ?? [])
-              : (route?.path ?? []),
-          )
-        : EMPTY,
-    [showPath, route, sim.timeline, sim.rerouteCount],
+      new Set(
+        network?.links.filter((l) => pathLinkIds.has(l.id)).flatMap((l) => [l.source, l.target]) ??
+          [],
+      ),
+    [network, pathLinkIds],
   );
   const visitedNodeIds = useMemo(
     () => new Set(route?.visitOrder.slice(0, sim.visitedCount).map((s) => s.nodeId)),
@@ -158,7 +142,7 @@ export function App() {
         tone={sim.frames.some((f) => f.status === 'blocked') ? 'danger' : copy.tone}
         text={
           sim.rerouting
-            ? 'Retrying affected groups from the sender · Finding a route around offline connections'
+            ? 'Updating routes · Preserving passed connections and recalculating unfinished groups'
             : loadError || phase === 'error'
               ? banner
               : sim.frames.some((f) => f.status === 'blocked')
@@ -281,7 +265,7 @@ export function App() {
               bandwidths={sim.linkBandwidthMbps}
               settingsLocked={!sim.canConfigure}
               onBandwidth={sim.configureBandwidth}
-              routeLinks={route?.linkPath ?? []}
+              routeLinks={[...pathLinkIds]}
               nodes={sim.disabledNodeIds}
               links={sim.disabledLinkIds}
               busy={sim.rerouting || phase === 'routing'}
@@ -296,6 +280,7 @@ export function App() {
               paused={sim.paused || sim.rerouting}
             />
             <RouteCard
+              live={sim.rerouteCount > 0}
               algorithm={sim.algorithm}
               phase={phase}
               network={network}

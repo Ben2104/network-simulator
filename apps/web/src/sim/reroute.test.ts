@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { project, type Network, type RouteResponse } from '@netsim/shared';
 import mockNetwork from '@netsim/shared/mocks/network.json';
-import { buildWorld, carPath, lotSlot, passTime, poseAt } from '../scene3d/world';
+import { buildWorld, carPath, lotSlot, poseAt } from '../scene3d/world';
+import { groupHops, nodeTime, remainingLinks, scheduleTimeline } from './progress';
 import { buildTimeline, carStatus, framesAt } from './timeline';
 import {
   blockedTimeline,
@@ -63,9 +64,9 @@ const unreachable: RouteResponse = {
   visitOrder: [],
 };
 const empty = new Set<string>();
-const timeline = buildTimeline([car], [route(coast)], pos, 0);
+const timeline = scheduleTimeline(network, buildTimeline([car], [route(coast)], pos, 0));
 
-describe('strict live failures and retransmission', () => {
+describe('progress-aware live failures and restoration', () => {
   it('restarts an affected in-flight group at the sender, never forwarding through an offline router', () => {
     const now = 0.1;
     const next = retryTimeline(
@@ -87,22 +88,112 @@ describe('strict live failures and retransmission', () => {
     expect(p.retries).toBe(1);
   });
 
-  it('also retries unacknowledged groups that already passed the failed router', () => {
-    const path = carPath(world, network, timeline.plans[0]!);
-    const now = passTime(path, world.pos.get('san-jose')!) + 0.1;
-    expect(now).toBeLessThan(timeline.end);
-    expect(needsRetry(timeline.plans[0]!, now, new Set(['san-jose']), empty)).toBe(true);
+  it('keeps groups that already passed the failed router or completed the failed road', () => {
+    const plan = timeline.plans[0]!;
+    const at = nodeTime(plan, 3);
+    expect(needsRetry(plan, at - 0.001, new Set(['san-jose']), empty)).toBe(true);
+    expect(needsRetry(plan, at, new Set(['san-jose']), empty)).toBe(true);
+    expect(needsRetry(plan, at + 0.001, new Set(['san-jose']), empty)).toBe(false);
+    expect(needsRetry(plan, at - 0.001, empty, new Set([plan.route.linkIds[2]!]))).toBe(true);
+    expect(needsRetry(plan, at, empty, new Set([plan.route.linkIds[2]!]))).toBe(false);
+    expect(
+      retryTimeline(network, timeline, at + 0.01, new Set(['san-jose']), empty, answer(inland), pos)
+        .plans[0],
+    ).toBe(plan);
+    expect(remainingLinks(plan, at + 0.01)).not.toContain(plan.route.linkIds[2]);
+    expect(groupHops(plan, at + 0.01)).toEqual({ completed: 3, remaining: 6 });
+  });
+
+  it('does not retry the last road once the car is inside the destination lot', () => {
+    const p = timeline.plans[0]!;
+    const enteredLot = nodeTime(p, p.route.nodeIds.length - 1);
+    const now = (enteredLot + p.arriveAt) / 2;
+    expect(now).toBeLessThan(p.arriveAt);
+    expect(needsRetry(p, now, empty, new Set([p.route.linkIds.at(-1)!]))).toBe(false);
+    expect(remainingLinks(p, now)).toEqual([]);
+    expect(poseAt(carPath(world, network, p), now).status).toBe('driving');
+  });
+
+  it('splits a convoy at a failure: the lead continues while later groups retry', () => {
+    const tl = scheduleTimeline(
+      network,
+      buildTimeline([car, { ...car, id: 'car-1', seq: 1 }], [route(coast), route(coast)], pos, 0),
+    );
+    const now = (nodeTime(tl.plans[0]!, 3) + nodeTime(tl.plans[1]!, 3)) / 2;
+    const next = retryTimeline(network, tl, now, new Set(['san-jose']), empty, answer(inland), pos);
+    expect(next.plans[0]).toBe(tl.plans[0]);
+    expect(next.plans[1]!.route.nodeIds).toEqual(inland);
+    expect(next.plans[1]!.departAt).toBe(now);
+    expect(groupTravelTime(next.plans[1]!, now)).toBeCloseTo(groupTravelTime(tl.plans[1]!, now));
+    expect(groupHops(next.plans[1]!, now).completed).toBe(groupHops(tl.plans[1]!, now).completed);
+  });
+
+  it('reoptimizes at the next router on restoration, preserving movement, time and completed hops', () => {
+    const detour = [
+      'csulb',
+      'el-segundo',
+      'slo',
+      'san-jose',
+      'oakland',
+      'sacramento',
+      'reno',
+      'klamath-falls',
+      'bend',
+      'oregon-dc',
+    ];
+    const tl = scheduleTimeline(network, buildTimeline([car], [route(detour)], pos, 0));
+    const old = tl.plans[0]!;
+    const at = nodeTime(old, 1);
+    const now = at / 2;
     const next = retryTimeline(
       network,
-      timeline,
+      tl,
       now,
-      new Set(['san-jose']),
       empty,
-      answer(inland),
+      empty,
+      answer(coast),
       pos,
+      new Map([['el-segundo', answer(coast.slice(1))]]),
     );
-    expect(next.plans[0]!.departAt).toBe(now);
-    expect(next.plans[0]!.route.nodeIds[0]).toBe(network.clientId);
+    const plan = next.plans[0]!;
+    expect(plan.route.nodeIds).toEqual(coast);
+    expect(plan.handoff?.at).toBe(at);
+    expect(plan.retries).toBe(old.retries);
+    expect(groupTravelTime(plan, now)).toBeCloseTo(groupTravelTime(old, now));
+    const oldPath = carPath(world, network, old),
+      newPath = carPath(world, network, plan);
+    for (const t of [now, at - 0.001, at]) {
+      expect(poseAt(newPath, t).x).toBeCloseTo(poseAt(oldPath, t).x, 6);
+      expect(poseAt(newPath, t).z).toBeCloseTo(poseAt(oldPath, t).z, 6);
+    }
+    expect(
+      Math.hypot(
+        poseAt(newPath, at + 0.001).x - poseAt(newPath, at).x,
+        poseAt(newPath, at + 0.001).z - poseAt(newPath, at).z,
+      ),
+    ).toBeLessThan(0.2);
+    expect(groupHops(plan, at)).toEqual({ completed: 1, remaining: 8 });
+    expect(groupHops(plan, next.end)).toEqual({ completed: 9, remaining: 0 });
+    expect(remainingLinks(plan, next.end)).toEqual([]);
+    expect(groupTravelTime(plan, next.end)).toBeCloseTo(plan.arriveAt - plan.departAt);
+    expect(poseAt(newPath, next.end).status).toBe('arrived');
+  });
+
+  it('reoptimizes queued groups from the sender without incrementing retries', () => {
+    const tl = scheduleTimeline(network, buildTimeline([car], [route(inland)], pos, 4));
+    const next = retryTimeline(
+      network,
+      tl,
+      0,
+      empty,
+      empty,
+      answer(coast),
+      pos,
+      new Map([['csulb', answer(coast)]]),
+    );
+    expect(next.plans[0]!.route.nodeIds).toEqual(coast);
+    expect(next.plans[0]!.departAt).toBe(tl.plans[0]!.departAt);
+    expect(next.plans[0]!.retries).toBeUndefined();
   });
 
   it('keeps delivered and unaffected groups unchanged', () => {

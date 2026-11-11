@@ -1,3 +1,4 @@
+import { nextNodeIndex, nodeTime, scheduleNodes } from './progress';
 import type { Car, Network, RouteResponse } from '@netsim/shared';
 import {
   CAR_SPEED,
@@ -8,8 +9,7 @@ import {
   type Timeline,
 } from './timeline';
 
-/** An unacknowledged group is discarded if its current attempt uses a failed element,
- * including an already visited router. A replacement copy starts at the sender. */
+/** Only current/future failures interrupt a group. Passed routers and completed roads are safe. */
 export function needsRetry(
   plan: CarPlan,
   now: number,
@@ -19,8 +19,8 @@ export function needsRetry(
   if (carStatus(plan, now) === 'arrived') return false;
   return (
     !!plan.blocked ||
-    plan.route.nodeIds.some((id) => nodes.has(id)) ||
-    plan.route.linkIds.some((id) => links.has(id))
+    plan.route.nodeIds.some((id, i) => nodes.has(id) && nodeTime(plan, i) >= now) ||
+    plan.route.linkIds.some((id, i) => links.has(id) && nodeTime(plan, i + 1) > now)
   );
 }
 
@@ -33,10 +33,42 @@ export function retryTimeline(
   links: ReadonlySet<string>,
   answer: RouteResponse,
   pos: ReadonlyMap<string, Point>,
+  restoredRoutes?: ReadonlyMap<string, RouteResponse>,
 ): Timeline {
   let retryIndex = 0;
   const plans = timeline.plans.map((plan): CarPlan => {
-    if (!needsRetry(plan, now, nodes, links)) return plan;
+    if (!needsRetry(plan, now, nodes, links)) {
+      if (!restoredRoutes || carStatus(plan, now) === 'arrived') return plan;
+      const k = nextNodeIndex(plan, now);
+      const suffix = restoredRoutes.get(plan.route.nodeIds[k]!);
+      if (
+        !suffix ||
+        suffix.status !== 'routed' ||
+        suffix.linkPath.join('|') === plan.route.linkIds.slice(k).join('|')
+      )
+        return plan;
+      const route = {
+        nodeIds: [...plan.route.nodeIds.slice(0, k), ...suffix.path],
+        linkIds: [...plan.route.linkIds.slice(0, k), ...suffix.linkPath],
+      };
+      const points = route.nodeIds.map((id) => pos.get(id)!);
+      const cum = [0];
+      for (let i = 1; i < points.length; i++)
+        cum.push(
+          cum[i - 1]! +
+            Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
+        );
+      const at = k === 0 ? Math.max(now, plan.departAt) : nodeTime(plan, k);
+      return scheduleNodes(network, {
+        ...plan,
+        route,
+        points,
+        cum,
+        departAt: k === 0 ? at : plan.departAt,
+        arriveAt: at + (cum[cum.length - 1]! - cum[k]!) / plan.speed,
+        handoff: k === 0 ? undefined : { plan, at, nodeIndex: k },
+      });
+    }
     const blocked = answer.status !== 'routed';
     const route = blocked
       ? { nodeIds: [network.clientId], linkIds: [] }
@@ -50,8 +82,10 @@ export function retryTimeline(
     const departAt = blocked
       ? now
       : Math.max(now, timeline.driveStart) + retryIndex++ * CAR_STAGGER_SEC;
-    return {
+    return scheduleNodes(network, {
       ...plan,
+      handoff: undefined,
+      nodeTimes: undefined,
       previous: plan,
       interruptedAt: now,
       blocked,
@@ -61,7 +95,7 @@ export function retryTimeline(
       departAt,
       retries: (plan.retries ?? 0) + (blocked ? 0 : 1),
       arriveAt: departAt + cum[cum.length - 1]! / plan.speed,
-    };
+    });
   });
   return {
     ...timeline,

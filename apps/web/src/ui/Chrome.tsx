@@ -43,13 +43,14 @@ export function Header() {
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
             cars. Choose BFS for fewest hops or Dijkstra for lowest configured road cost, then Send.
-            All groups follow the route chosen by the selected algorithm. Each station lights up as
-            a car reaches it.
+            On Send, groups use the route chosen by the selected algorithm. Each station lights up
+            as a car reaches it.
           </p>
           <p>
             Use the speed control to slow the cars down for a presentation. Click a router to switch
-            it offline or online during a run. Affected unfinished groups retry from the sender
-            using the selected algorithm. Use the sidebar switches for road failures.
+            it offline or online during a run. Groups still approaching the failure retry from the
+            sender; groups already past it continue. Reopening connections reoptimizes from the next
+            router using the selected algorithm. Use the sidebar switches for road failures.
           </p>
           <p>
             Drag to orbit, right-drag to pan, scroll to zoom. Auto camera follows the action; Follow
@@ -92,7 +93,7 @@ export function Legend(props: { algorithm?: RoutingAlgorithm }) {
           <i className="key lot" /> Parking lot
         </li>
         <li>
-          <i className="key route" /> Chosen route
+          <i className="key route" /> Remaining group routes
         </li>
         <li>
           <i className="key station" /> Station

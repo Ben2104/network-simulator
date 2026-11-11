@@ -13,8 +13,16 @@ import {
 import { api, ApiRequestError } from '../api/client';
 import { packetize } from './packetize';
 import { planRun } from './plan';
-import { blockedTimeline, clockStop, retryTimeline } from './reroute';
-import { BFS_STEP_SEC, bfsStepsShown, framesAt, type CarFrame, type Timeline } from './timeline';
+import { nextNodeIndex, scheduleTimeline } from './progress';
+import { blockedTimeline, clockStop, needsRetry, retryTimeline } from './reroute';
+import {
+  BFS_STEP_SEC,
+  bfsStepsShown,
+  framesAt,
+  type CarFrame,
+  type CarPlan,
+  type Timeline,
+} from './timeline';
 
 /** Packetizing is synchronous here, so the architecture's `packetizing` state never shows. */
 export type Phase =
@@ -34,6 +42,8 @@ export type Speed = (typeof SPEEDS)[number];
 /** Development-only clock inspection for deterministic browser regression tests. */
 export interface SimulationDebug {
   readonly paused: boolean;
+  readonly plans: readonly CarPlan[];
+  readonly now: number;
   readonly arrivals: readonly number[];
   seek: (seconds: number) => void;
 }
@@ -81,6 +91,7 @@ export function useSimulation(network: Network | null) {
   /** Bumped by every Send and Reset so a late API reply cannot revive a cleared run. */
   const requestId = useRef(0);
   const recalculating = useRef(false);
+  const restorationPending = useRef(false);
 
   useEffect(() => {
     speedRef.current = speed;
@@ -114,6 +125,10 @@ export function useSimulation(network: Network | null) {
     const target = window as Window & { __packetHighway?: SimulationDebug };
     const debug: SimulationDebug = {
       paused,
+      plans: run?.timeline.plans ?? [],
+      get now() {
+        return clockRef.current;
+      },
       arrivals: run?.timeline.plans.map((p) => p.arriveAt) ?? [],
       seek: (seconds) => {
         if (!run || !paused || routing || rerouting || apiError)
@@ -163,6 +178,7 @@ export function useSimulation(network: Network | null) {
     setRouting(false);
     setRerouting(false);
     recalculating.current = false;
+    restorationPending.current = false;
     setRerouteCount(0);
     setRun(null);
     setApiError(null);
@@ -231,7 +247,7 @@ export function useSimulation(network: Network | null) {
             )
           : planRun(upload.packets, route, pos, Math.random);
       setRerouteCount(0);
-      setRun({ route, timeline });
+      setRun({ route, timeline: scheduleTimeline(network, timeline) });
     } catch (e) {
       if (id !== requestId.current) return;
       setApiError(e instanceof ApiRequestError ? e.message : 'Could not reach the route service.');
@@ -242,26 +258,57 @@ export function useSimulation(network: Network | null) {
 
   const updateFailures = useCallback(
     async (nodes: ReadonlySet<string>, links: ReadonlySet<string>) => {
-      if (!network || rerouting || routing) return;
+      if (!network || rerouting || routing || recalculating.current) return;
+      const restoring =
+        restorationPending.current ||
+        [...disabledNodeIds].some((id) => !nodes.has(id)) ||
+        [...disabledLinkIds].some((id) => !links.has(id));
       setDisabledNodeIds(nodes);
       setDisabledLinkIds(links);
       if (!run || phase === 'delivered') return;
       const id = ++requestId.current;
       const now = clockRef.current;
       recalculating.current = true;
+      restorationPending.current = restoring;
       setRerouting(true);
       setApiError(null);
       try {
-        const route = await api.route({
-          fromNodeId: network.clientId,
-          algorithm,
-          ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
-          disabledNodeIds: [...nodes],
-          disabledLinkIds: [...links],
-        });
+        const starts = new Set([network.clientId]);
+        if (restoring)
+          for (const plan of run.timeline.plans) {
+            if (now < plan.arriveAt && !needsRetry(plan, now, nodes, links))
+              starts.add(plan.route.nodeIds[nextNodeIndex(plan, now)]!);
+          }
+        const entries = await Promise.all(
+          [...starts].map(
+            async (fromNodeId) =>
+              [
+                fromNodeId,
+                await api.route({
+                  fromNodeId,
+                  algorithm,
+                  ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
+                  disabledNodeIds: [...nodes],
+                  disabledLinkIds: [...links],
+                }),
+              ] as const,
+          ),
+        );
         if (id !== requestId.current) return;
-        const timeline = retryTimeline(network, run.timeline, now, nodes, links, route, pos);
-        // The global route card can be unreachable while a group closer to the server still delivers.
+        const answers = new Map(entries);
+        const route = answers.get(network.clientId)!;
+        const timeline = retryTimeline(
+          network,
+          run.timeline,
+          now,
+          nodes,
+          links,
+          route,
+          pos,
+          restoring ? answers : undefined,
+        );
+        restorationPending.current = false;
+        // The card describes the current best sender route; in-flight groups can have other suffixes.
         setRun({ route, timeline });
         setRerouteCount((n) => n + 1);
       } catch (e) {
@@ -274,7 +321,18 @@ export function useSimulation(network: Network | null) {
         }
       }
     },
-    [network, rerouting, routing, run, phase, pos, algorithm, linkBandwidthMbps],
+    [
+      network,
+      rerouting,
+      routing,
+      run,
+      phase,
+      pos,
+      algorithm,
+      linkBandwidthMbps,
+      disabledNodeIds,
+      disabledLinkIds,
+    ],
   );
 
   const toggleFailure = (kind: 'node' | 'link', id: string) => {

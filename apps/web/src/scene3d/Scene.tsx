@@ -69,9 +69,12 @@ export const Scene = memo(function Scene(props: SceneProps) {
     const m = new Map<string, number[]>();
     if (!timeline || !paths) return m;
     timeline.plans.forEach((plan, i) => {
-      for (const id of plan.route.nodeIds) {
+      for (const [k, id] of plan.route.nodeIds.entries()) {
         const at = world.pos.get(id);
-        if (at) (m.get(id) ?? m.set(id, []).get(id)!).push(passTime(paths[i]!, at));
+        if (at)
+          (m.get(id) ?? m.set(id, []).get(id)!).push(
+            plan.nodeTimes?.[k] ?? passTime(paths[i]!, at),
+          );
       }
     });
     for (const times of m.values()) times.sort((a, b) => a - b);

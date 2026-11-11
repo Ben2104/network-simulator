@@ -39,8 +39,8 @@ export function describePhase(i: CopyInput): PhaseCopy {
   const weighted = i.algorithm === 'dijkstra';
   const name = weighted ? 'Dijkstra' : 'BFS';
   const hint = weighted
-    ? 'All groups follow the lowest-cost route; cost is not measured latency'
-    : 'All groups follow the BFS fewest-hop route';
+    ? 'Dijkstra routing; orange shows remaining group routes; cost is not measured latency'
+    : 'BFS routing; orange shows remaining group routes';
   switch (i.phase) {
     case 'idle':
       return {
