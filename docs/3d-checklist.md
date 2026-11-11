@@ -2,7 +2,7 @@
 
 Run before a demo or after touching `apps/web/src/scene3d/`. WebGL output is not pixel-tested in
 CI; the automated part is `npm run test:e2e -w @netsim/web` (canvas mounts and is non-blank,
-camera release on drag, no-WebGL fallback).
+camera release on drag, no-WebGL fallback, Kenney models load, primitive fallback when they 404).
 
 Setup: `npm run dev`, open http://localhost:5173 in Chrome, Firefox and Safari (one laptop
 without a discrete GPU).
@@ -18,6 +18,7 @@ without a discrete GPU).
 ## Submit → Send
 
 - [ ] Submit (Presets → essay.pdf): Auto camera flies to the CSULB lot; 24 coloured cars parked.
+- [ ] Cars are the Kenney sedan, each painted its own colour; station towns are Kenney houses.
 - [ ] Hovering a car shows its number, packet range and bytes.
 - [ ] Send: camera pulls back; stations light blue in BFS order with an expanding ring and
       "BFS depth N"; the sidebar queue advances in step.
@@ -45,6 +46,9 @@ without a discrete GPU).
 
 - [ ] With WebGL disabled (`chrome --disable-3d-apis`), the app opens in 2D with
       "3D view needs WebGL…" and the 3D button disabled; no console errors.
+- [ ] With `/models/` blocked (DevTools → Network → Block request URL `*/models/*`), stations and
+      cars show the primitive shapes, cars still drive, and the console has only one warning per
+      model file.
 - [ ] With "reduce motion" on in the OS, the app opens in 2D; 3D is still selectable.
 - [ ] Frame rate stays smooth (≥ 50 fps) with 24 cars on a laptop (DevTools → Performance).
 
