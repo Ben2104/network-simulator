@@ -1,6 +1,8 @@
 import { memo, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Clone, Detailed } from '@react-three/drei';
 import { type Mesh, type MeshBasicMaterial, type MeshStandardMaterial } from 'three';
+import { ModelOr, modelUrl } from './models';
 import { C } from './palette';
 import { distanceToLine, inLotArea, rng, type Lot, type Vec2 } from './world';
 
@@ -27,6 +29,13 @@ const STATION_SCALE = 1.5;
 /** Sim seconds a "car just passed" burst lasts. */
 const PASS_SEC = 0.9;
 
+/** Kenney City Kit (Suburban) houses used for station towns; the primitive box is the fallback. */
+const HOUSES = ['a', 'c', 'f', 'h', 'k', 'n'].map((t) => modelUrl(`city/building-type-${t}`));
+/** Kenney houses are about 1.2 units across; scale them to the town's footprint. */
+const HOUSE_SIZE = 1.2;
+/** Camera distance beyond which a town drops back to primitive boxes. */
+const HOUSE_DETAIL_DISTANCE = 220;
+
 const STATE_COLOR: Record<StationState, string> = {
   offline: C.danger,
   idle: C.primary,
@@ -40,7 +49,16 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][], lots: readonly
     let seed = 0;
     for (const ch of id) seed = seed * 31 + ch.charCodeAt(0);
     const rand = rng(seed);
-    const out: { x: number; z: number; w: number; d: number; h: number; alt: boolean }[] = [];
+    const out: {
+      x: number;
+      z: number;
+      w: number;
+      d: number;
+      h: number;
+      alt: boolean;
+      house: string;
+      rot: number;
+    }[] = [];
     for (let tries = 0; out.length < 9 && tries < 80; tries++) {
       const a = rand() * Math.PI * 2;
       const r = 6 + rand() * 6;
@@ -55,10 +73,25 @@ function useTown(id: string, pos: Vec2, roads: readonly Vec2[][], lots: readonly
         d: 1.2 + rand() * 1.4,
         h: 1 + rand() * rand() * 5,
         alt: rand() > 0.5,
+        // Picked from the seed, not rand(), so the primitive layout stays exactly as before.
+        house: HOUSES[Math.abs(seed + out.length) % HOUSES.length]!,
+        rot: (Math.abs(seed + out.length * 7) % 4) * (Math.PI / 2),
       });
     }
     return out;
   }, [id, pos, roads, lots]);
+}
+
+type TownBuilding = ReturnType<typeof useTown>[number];
+
+/** Primitive town building: the far level of detail and the fallback for a missing house. */
+function TownBox({ b }: { b: TownBuilding }) {
+  return (
+    <mesh position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
+      <boxGeometry args={[b.w, b.h, b.d]} />
+      <meshStandardMaterial color={b.alt ? C.building : C.buildingAlt} roughness={0.8} />
+    </mesh>
+  );
 }
 
 /**
@@ -173,12 +206,31 @@ export const Station = memo(function Station(props: Props) {
           toneMapped={false}
         />
       </mesh>
-      {town.map((b, i) => (
-        <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow receiveShadow>
-          <boxGeometry args={[b.w, b.h, b.d]} />
-          <meshStandardMaterial color={b.alt ? C.building : C.buildingAlt} roughness={0.8} />
-        </mesh>
-      ))}
+      {/* Kenney houses up close; the primitive boxes from further out, where a house is a few
+          pixels but would cost ~1,200 triangles (and a shadow pass) each. */}
+      <Detailed distances={[0, HOUSE_DETAIL_DISTANCE]}>
+        <group>
+          {town.map((b, i) => (
+            <ModelOr key={i} url={b.house} fallback={<TownBox b={b} />}>
+              {(scene) => (
+                <Clone
+                  object={scene}
+                  position={[b.x, 0, b.z]}
+                  rotation-y={b.rot}
+                  scale={(b.w + b.d) / 2 / HOUSE_SIZE}
+                  castShadow
+                  receiveShadow
+                />
+              )}
+            </ModelOr>
+          ))}
+        </group>
+        <group>
+          {town.map((b, i) => (
+            <TownBox key={i} b={b} />
+          ))}
+        </group>
+      </Detailed>
 
       <group scale={STATION_SCALE}>
         <group

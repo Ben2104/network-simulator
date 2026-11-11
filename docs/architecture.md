@@ -148,8 +148,13 @@ and cruising speeds vary between sends; every group still follows the chosen rou
   hand-placed ranges and volcanoes, lakes, instanced pines, broadleaf trees, shrubs, cacti and
   rocks per biome. Nothing is placed on a road,
   station or lot. Decorative only: BFS ignores terrain.
-- Models: procedural primitives (`scene3d/`); Kenney Car/City kits (CC0) to be swapped in behind
-  the same components (#22). Sources recorded in `apps/web/ASSETS.md`.
+- Models: Kenney Car Kit sedan for the packet cars and Kenney City Kit (Suburban) houses for the
+  station towns (CC0, `apps/web/public/models/`), loaded once per file by `scene3d/models.tsx`.
+  Component props are unchanged. Each component keeps its procedural primitive as the fallback,
+  shown while a model loads and kept if it fails. Cars stay one drei `<Instances>` per part: the
+  sedan is split into paint (tinted per car), trim and wheels. Station towns switch to their primitive
+  boxes beyond 220 units from the camera (drei `<Detailed>`), so the overview stays cheap. Lots, stations, roads and scenery
+  are still primitives. Sources recorded in `apps/web/ASSETS.md`.
 - 3D keeps true geography (no 68° rotation, no Los Angeles spread); the camera does the framing.
   Lots extend inland (east) of their gate so they never sit in the ocean.
 
@@ -561,7 +566,7 @@ Live failure tests wait for the route response before checking the rendered upda
 | `POST /api/upload` + drag-and-drop UI  | Done (size-based car plan)                        |
 | `/packetize`, `fromNodeId`             | To do (web packetizes client-side meanwhile)      |
 | `sim/` hook + timeline                 | Done (`useSimulation`, `timeline.ts`)             |
-| 3D scene, cars, camera                 | Done (primitives); Kenney models pending (#22)    |
+| 3D scene, cars, camera                 | Done (Kenney cars and towns, primitive fallback)  |
 | E2E tests (Playwright, CI job `e2e`)   | Done                                              |
 | Component tests                        | To do                                             |
 

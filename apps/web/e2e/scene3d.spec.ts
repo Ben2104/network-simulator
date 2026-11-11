@@ -59,3 +59,35 @@ test('camera controls: follow is released by a drag', async ({ page }) => {
   await expect(follow).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByText('Camera: Orbit · Free')).toBeVisible();
 });
+
+test('loads the Kenney models', async ({ page }) => {
+  const models: string[] = [];
+  page.on('response', (r) => {
+    if (r.url().includes('/models/') && r.ok()) models.push(r.url().split('/models/')[1]!);
+  });
+  await page.goto('/');
+  await expect(page.locator('.scene3d canvas')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => models.filter((m) => m.endsWith('.glb')).length).toBe(7);
+  expect(models).toContain('car/sedan.glb');
+});
+
+test('falls back to primitives when the models fail to load', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.route('**/models/**', (route) => route.fulfill({ status: 404, body: 'missing' }));
+  await page.goto('/');
+  await expect(page.locator('.scene3d canvas')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => canvasSpread(page), { timeout: 30_000 }).toBeGreaterThan(40);
+
+  await page.getByRole('button', { name: 'Presets' }).click();
+  await page.getByRole('button', { name: /lecture\.mp4/ }).click();
+  await expect(page.getByText('client · 24 groups at sender')).toBeAttached();
+  await page.getByRole('radio', { name: '2×' }).click();
+  await page.getByRole('button', { name: /Send/ }).first().click();
+  await expect(page.getByText('STATE:')).toContainText(/SEARCHING|DRIVING|DELIVERED/, {
+    timeout: 15_000,
+  });
+  // Still the 3D scene (no switch to the 2D view) and nothing thrown.
+  await expect(page.locator('.scene3d canvas')).toBeVisible();
+  expect(errors).toEqual([]);
+});
