@@ -1,5 +1,5 @@
 import { MAP_HEIGHT, MAP_WIDTH, project, type Network } from '@netsim/shared';
-import { carStatus, type CarPlan } from '../sim/timeline';
+import { carStatus, movementTime, type CarPlan } from '../sim/timeline';
 
 /**
  * Pure 3D layout: where stations, roads, lots and cars sit in world space. No three.js imports, so
@@ -145,6 +145,7 @@ export interface CarPath {
   tcum: number[];
   departAt: number;
   arriveAt: number;
+  bottleneck?: CarPlan['bottleneck'];
 }
 
 /** Corner radius for turns at stations, lot aisles and gates (a car is 2.4 long). */
@@ -291,6 +292,7 @@ export function carPath(world: World, network: Network, plan: CarPlan): CarPath 
     switchAt: plan.handoff?.at,
     departAt: plan.handoff?.at ?? plan.departAt,
     arriveAt: plan.arriveAt,
+    bottleneck: plan.bottleneck,
   };
 }
 
@@ -369,8 +371,8 @@ export function poseAt(path: CarPath, t: number): Pose {
     return poseAt(path.previous, t);
   if (path.blocked) return { ...path.pts[0]!, heading: 0, roll: 0, pitch: 0, status: 'blocked' };
   const total = path.cum[path.cum.length - 1]!;
-  const span = Math.max(path.arriveAt - path.departAt, 1e-6);
-  const f = Math.min(Math.max((t - path.departAt) / span, 0), 1);
+  const span = Math.max(movementTime(path, path.arriveAt) - path.departAt, 1e-6);
+  const f = Math.min(Math.max((movementTime(path, t) - path.departAt) / span, 0), 1);
   const d = distanceAt(path, ease(f));
   const p = pointAt(path, d);
   const rear = pointAt(path, d - 0.6);

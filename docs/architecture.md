@@ -337,7 +337,12 @@ costs; the UI calls it **Settled order**, rather than a FIFO queue. Every group 
 Dijkstra additionally shows total route cost. The former random alternate-route traffic is disabled.
 Live failure retries use the selected algorithm and the same configured bandwidths. Animation
 speed and travel-time estimation still use the existing simulation clock and geometry; Mbps
-affects route choice, not physical transfer timing or car speed.
+affects route choice in ordinary runs. In the optional Dijkstra congestion demo, groups depart
+together and queue in arrival order on one selected road if the chosen route uses it.
+Each group occupies the road for its size in bits divided by the configured bits per second.
+The timeline holds the group at the upstream station during its wait and transmission, then
+resumes the existing motion. Transfer timing reports queue waits separately. The network stays
+fixed during demo playback, and a route that bypasses the selected road adds no queue delay.
 
 The v2 extension is optional and backward compatible: `/api/route` accepts `algorithm` (`bfs`
 or `dijkstra`) and `linkBandwidthMbps` (at most 64 known road IDs mapped to the three allowed

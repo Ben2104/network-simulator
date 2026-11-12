@@ -14,6 +14,7 @@ export function LiveNetwork(props: {
   nodes: ReadonlySet<string>;
   links: ReadonlySet<string>;
   busy: boolean;
+  failuresLocked?: boolean;
   changes: number;
   onToggle: (kind: 'node' | 'link', id: string) => void;
   onRestore: () => void;
@@ -52,7 +53,7 @@ export function LiveNetwork(props: {
         role="switch"
         aria-checked={!offline}
         aria-label={`${name} online`}
-        disabled={props.busy}
+        disabled={props.busy || props.failuresLocked}
         className={`btn ${offline ? 'fault-offline' : ''}`}
         onClick={() => props.onToggle(kind, id)}
       >
@@ -77,11 +78,13 @@ export function LiveNetwork(props: {
         groups remain delivered. This is a simplified simulation, not OSPF.
       </p>
       <p role="status">
-        {props.busy
-          ? 'Recalculating routes…'
-          : count
-            ? `${count} offline · ${props.changes} route updates`
-            : 'All roads and routers online'}
+        {props.failuresLocked
+          ? 'Outage controls locked during the congestion demo.'
+          : props.busy
+            ? 'Recalculating routes…'
+            : count
+              ? `${count} offline · ${props.changes} route updates`
+              : 'All roads and routers online'}
       </p>
       {count > 0 && (
         <>
@@ -89,7 +92,12 @@ export function LiveNetwork(props: {
             {[...props.nodes].map((id) => control('node', id, label(id), true))}
             {[...props.links].map((id) => control('link', id, roadName(id), true))}
           </ul>
-          <button type="button" className="btn" disabled={props.busy} onClick={props.onRestore}>
+          <button
+            type="button"
+            className="btn"
+            disabled={props.busy || props.failuresLocked}
+            onClick={props.onRestore}
+          >
             Restore all connections
           </button>
         </>
@@ -121,7 +129,7 @@ export function LiveNetwork(props: {
               distanceKm={l.distanceKm}
               mbps={bandwidthFor(l.id, props.bandwidths)}
               offline={props.links.has(l.id)}
-              busy={props.busy}
+              busy={props.busy || !!props.failuresLocked}
               locked={props.settingsLocked}
               onRoute={props.routeLinks.includes(l.id)}
               onToggle={() => props.onToggle('link', l.id)}

@@ -27,6 +27,13 @@ Cost is `1000 / Mbps`. BFS ignores these costs; Dijkstra minimizes their total. 
 transfers and press Send again to compare routes. Both algorithms send every group along their selected route. BFS hides bandwidth/cost controls;
 Dijkstra shows them. Switching modes preserves stored Dijkstra bandwidth settings. These settings affect path selection, not animation speed or measured network latency.
 
+### Congestion demo
+
+In Dijkstra mode, choose a road in **Congestion demo**, select a large file preset, and press
+**Send**. If the route uses that road, groups leave together and take turns transmitting there
+at its configured rate. **Transfer timing** shows the number queued and each group's wait.
+Use slow playback to see short waits. Outage controls are locked during the demo.
+
 ## Quick start
 
 **Prerequisites:** Node 22 (see `.nvmrc`; 20.19+ also works) and npm.

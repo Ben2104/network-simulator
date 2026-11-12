@@ -8,10 +8,18 @@ export function planRun(
   route: RouteResponse,
   pos: ReadonlyMap<string, Point>,
   rng: () => number,
+  burst = false,
 ): Timeline {
   const routes =
     route.status === 'routed'
       ? packets.cars.map(() => ({ nodeIds: route.path, linkIds: route.linkPath }))
       : [];
-  return buildTimeline(packets.cars, routes, pos, route.visitOrder.length, rng);
+  return buildTimeline(
+    packets.cars,
+    routes,
+    pos,
+    route.visitOrder.length,
+    burst ? undefined : rng,
+    burst ? 0 : undefined,
+  );
 }

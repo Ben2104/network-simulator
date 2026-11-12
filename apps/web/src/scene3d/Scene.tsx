@@ -22,7 +22,7 @@ export interface SceneProps {
   previewNodeId: string | null;
   disabledNodeIds: ReadonlySet<string>;
   disabledLinkIds: ReadonlySet<string>;
-  onToggleNode: (id: string) => void;
+  onToggleNode?: (id: string) => void;
   phase: Phase;
   counts: { waiting: number; blocked: number; arrived: number };
   cars: readonly Car[];
@@ -222,7 +222,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
             <Station
               key={n.id}
               id={n.id}
-              onToggle={() => props.onToggleNode(n.id)}
+              onToggle={props.onToggleNode ? () => props.onToggleNode?.(n.id) : undefined}
               pos={world.pos.get(n.id)!}
               state={stationState(n.id)}
               visitAt={visit.get(n.id)?.at ?? null}
