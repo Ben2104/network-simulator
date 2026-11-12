@@ -10,6 +10,7 @@ import {
 } from '@netsim/shared';
 import { findRoute } from '../graph/bfs.js';
 import { findWeightedRoute } from '../graph/dijkstra.js';
+import { findBgpRoute } from '../graph/bgp.js';
 import { HttpError } from '../errors.js';
 
 export interface NetworkRoutesOptions {
@@ -37,7 +38,8 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
     {
       schema: {
         tags: ['network'],
-        summary: 'BFS fewest-hop or Dijkstra lowest-cost route, avoiding disabled connections',
+        summary:
+          'BFS fewest-hop, Dijkstra lowest-cost or simplified BGP policy route, avoiding disabled connections',
         body: RouteRequestSchema,
         response: { 200: RouteResponseSchema },
       },
@@ -57,10 +59,15 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
         disabledNodeIds: new Set(disabledNodeIds),
         disabledLinkIds: new Set(disabledLinkIds),
       };
+      const bgp =
+        algorithm === 'bgp'
+          ? findBgpRoute(network, fromNodeId, network.serverId, failures, linkBandwidthMbps)
+          : null;
       const result =
-        algorithm === 'dijkstra'
+        bgp ??
+        (algorithm === 'dijkstra'
           ? findWeightedRoute(network, fromNodeId, network.serverId, failures, linkBandwidthMbps)
-          : findRoute(network, fromNodeId, network.serverId, failures);
+          : findRoute(network, fromNodeId, network.serverId, failures));
       return {
         status: result.found ? 'routed' : 'unreachable',
         visitOrder: result.visitOrder,
@@ -71,6 +78,7 @@ export const networkRoutes: FastifyPluginAsync<NetworkRoutesOptions> = async (ap
           ? {
               algorithm,
               totalCost: result.found ? pathCost(result.linkPath, linkBandwidthMbps) : null,
+              ...(bgp ? { asPath: bgp.found ? bgp.asPath : null } : {}),
             }
           : {}),
       };

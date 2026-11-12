@@ -1,8 +1,8 @@
 import { useId, useState } from 'react';
 import type { Network, PacketizeResponse, RouteResponse, RoutingAlgorithm } from '@netsim/shared';
-import { LIMITS } from '@netsim/shared';
+import { LIMITS, usesLinkCost } from '@netsim/shared';
 import { SPEEDS, type Phase, type Speed, type Upload } from '../sim/useSimulation';
-import { formatBytes } from './copy';
+import { ALGORITHM_NAME, asLabel, formatBytes } from './copy';
 import { CarMeter, Dropzone } from './Dropzone';
 
 const PRESETS = [
@@ -190,8 +190,8 @@ export function RouteCard(props: {
 }) {
   const { phase, route, network } = props;
   const algorithm = route?.algorithm ?? props.algorithm;
-  const weighted = algorithm === 'dijkstra';
-  const name = weighted ? 'Dijkstra' : 'BFS';
+  const weighted = usesLinkCost(algorithm);
+  const name = ALGORITHM_NAME[algorithm];
   const label = (id: string) => network.nodes.find((n) => n.id === id)?.label ?? id;
   const done = route && phase !== 'searching';
   const hops = route?.status === 'routed' && done ? route.path.length - 1 : 0;
@@ -230,10 +230,20 @@ export function RouteCard(props: {
         </p>
       )}
       <p className="hint">
-        {weighted
-          ? 'Dijkstra = lowest total configured link cost, not necessarily fewest hops.'
-          : 'BFS = fewest hops, not shortest distance.'}
+        {
+          {
+            bfs: 'BFS = fewest hops, not shortest distance.',
+            dijkstra: 'Dijkstra = lowest total configured link cost, not necessarily fewest hops.',
+            bgp: 'BGP = business policy first, then fewest ASes; not necessarily fewest hops or lowest cost.',
+          }[algorithm]
+        }
       </p>
+      {algorithm === 'bgp' && route?.status === 'routed' && done && route.asPath && (
+        <p className="route-cost" aria-label="AS path">
+          AS path: <strong>{route.asPath.map(asLabel).join(' → ')}</strong>{' '}
+          <span className="hint small">({route.asPath.length} ASes)</span>
+        </p>
+      )}
       {weighted &&
         route?.status === 'routed' &&
         done &&
@@ -261,8 +271,9 @@ export function RouteCard(props: {
         <div className="callout danger">
           <strong>Destination unreachable</strong>
           <p>
-            {name} search exhausted all {route?.visitOrder.length} reachable nodes without
-            discovering a connected path to US-West Data Center.
+            {algorithm === 'bgp'
+              ? `No AS agreement chain advertises a route to US-West Data Center. Roads may still connect, but policy does not allow them. Settled ${route?.visitOrder.length} stations inside the sender's own AS.`
+              : `${name} search exhausted all ${route?.visitOrder.length} reachable nodes without discovering a connected path to US-West Data Center.`}
           </p>
         </div>
       )}
@@ -271,7 +282,7 @@ export function RouteCard(props: {
           <p>
             {phase === 'idle'
               ? `No route yet. Submit a file or message, then click Send to run ${name}.`
-              : `Ready to calculate route. ${name} will find the ${weighted ? 'lowest total cost' : 'fewest hops'} between CSULB and US-West Data Center.`}
+              : `Ready to calculate route. ${name} will find the ${{ bfs: 'fewest hops', dijkstra: 'lowest total cost', bgp: 'policy-preferred AS path' }[algorithm]} between CSULB and US-West Data Center.`}
           </p>
         </div>
       )}

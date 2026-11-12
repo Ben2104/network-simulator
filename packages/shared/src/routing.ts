@@ -16,6 +16,11 @@ export function bandwidthCost(mbps: number): number {
   return ROUTING.referenceBandwidthMbps / mbps;
 }
 
+/** True for modes that read configured road costs (Dijkstra, and BGP inside each AS). */
+export function usesLinkCost(algorithm: string | undefined): boolean {
+  return algorithm === 'dijkstra' || algorithm === 'bgp';
+}
+
 export function bandwidthFor(id: string, overrides: Readonly<Record<string, number>>): number {
   return Object.hasOwn(overrides, id) ? overrides[id]! : ROUTING.defaultBandwidthMbps;
 }

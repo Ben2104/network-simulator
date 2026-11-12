@@ -75,4 +75,17 @@ describe('weighted routing API', () => {
     expect(unknown.json().error.code).toBe('UNKNOWN_ID');
     expect((await request({ algorithm: 'ospf' })).statusCode).toBe(400);
   });
+  it('returns the BGP AS path, total cost and settled costs', async () => {
+    const res = (await request({ algorithm: 'bgp' })).json();
+    expect(res.status).toBe('routed');
+    expect(res.algorithm).toBe('bgp');
+    expect(res.asPath).toEqual([64512, 64520, 64550, 64560]);
+    expect(res.totalCost).toBe(res.linkPath.length);
+    expect(res.visitOrder.every((s: { cost?: number }) => s.cost !== undefined)).toBe(true);
+    const blocked = (
+      await request({ algorithm: 'bgp', disabledNodeIds: ['barstow', 'sacramento'] })
+    ).json();
+    expect(blocked).toMatchObject({ status: 'unreachable', asPath: null, totalCost: null });
+    expect((await request({ algorithm: 'dijkstra' })).json()).not.toHaveProperty('asPath');
+  });
 });

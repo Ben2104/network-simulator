@@ -12,6 +12,8 @@ export function findWeightedRoute(
   to: string,
   failures: FailureState,
   bandwidths: Readonly<Record<string, number>> = {},
+  /** Optional direction filter; BGP uses it so a path never steps back to an earlier AS. */
+  canTraverse: (from: string, to: string) => boolean = () => true,
 ): BfsResult {
   const adjacency = new Map<string, { to: string; linkId: string; cost: number }[]>();
   for (const n of network.nodes) if (!failures.disabledNodeIds.has(n.id)) adjacency.set(n.id, []);
@@ -21,8 +23,8 @@ export function findWeightedRoute(
       b = adjacency.get(l.target);
     if (!a || !b) continue;
     const cost = bandwidthCost(bandwidthFor(l.id, bandwidths));
-    a.push({ to: l.target, linkId: l.id, cost });
-    b.push({ to: l.source, linkId: l.id, cost });
+    if (canTraverse(l.source, l.target)) a.push({ to: l.target, linkId: l.id, cost });
+    if (canTraverse(l.target, l.source)) b.push({ to: l.source, linkId: l.id, cost });
   }
   for (const edges of adjacency.values())
     edges.sort((a, b) => codeOrder(a.to, b.to) || codeOrder(a.linkId, b.linkId));

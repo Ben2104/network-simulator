@@ -1,7 +1,7 @@
 # Packet Highway — Network Route Simulator
 
 Submit a file at the **CSULB parking lot**. It is split into packets, shown as 3D **cars**.
-Choose **BFS** (fewest hops) or **Dijkstra** (lowest configured cost), then press **Send** to search the West Coast network of **stations** (routers),
+Choose **BFS** (fewest hops), **Dijkstra** (lowest configured cost) or **BGP** (illustrative AS policy), then press **Send** to search the West Coast network of **stations** (routers),
 then the cars drive the chosen route to the **US-West Data Center, Oregon** lot. Click routers (or use sidebar road switches) to switch connections offline, even while groups are driving, and watch only groups that have not passed the failure retry from the sender. Groups already past it continue. Restore connections to release blocked groups and reoptimize moving groups from their next router. Orange roads track remaining group paths. The Transfer timing card shows simulated group and total completion times.
 
 > **Educational simulation only.** Stations are nodes in an in-memory graph; the network is
@@ -26,6 +26,12 @@ Select **Dijkstra**, then use **Live network → Roads → Edit** to choose **10
 Cost is `1000 / Mbps`. BFS ignores these costs; Dijkstra minimizes their total. Edit between
 transfers and press Send again to compare routes. Both algorithms send every group along their selected route. BFS hides bandwidth/cost controls;
 Dijkstra shows them. Switching modes preserves stored Dijkstra bandwidth settings. These settings affect path selection, not animation speed or measured network latency.
+
+Select **BGP** to route through six invented Autonomous Systems instead. Business policy decides
+first (customer routes beat peer routes, which beat paid-provider routes), then the shortest AS
+path; the same bandwidth costs only pick roads inside each AS. On the healthy network BGP takes the
+10-hop desert route because SoCal Metro prefers its free peer over its paid provider. The AS map
+and agreements are in `packages/shared/src/bgp.ts` and `docs/architecture.md`.
 
 ## Quick start
 
@@ -83,7 +89,7 @@ contract, error codes, limits, config, and deployment details. Summary:
 
 - **Two steps.** Upload (`/upload`, ≤ 10 MB) or a preset splits the file into cars by size:
   10 MB fills 24 cars, smaller files proportionally fewer. Send → `/route` runs BFS,
-  then search animation, then every group follows the route selected by BFS or Dijkstra.
+  then search animation, then every group follows the route selected by BFS, Dijkstra or BGP.
 - **Stateless API.** Server holds one fixed topology. Browser holds cars and playback state.
   Survives Render restarts; concurrent users do not collide.
 - **BFS = fewest hops,** not shortest distance. Topology is designed so fewest-hop routes look

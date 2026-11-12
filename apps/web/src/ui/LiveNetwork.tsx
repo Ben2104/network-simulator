@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bandwidthFor, type Network, type RoutingAlgorithm } from '@netsim/shared';
+import { bandwidthFor, usesLinkCost, type Network, type RoutingAlgorithm } from '@netsim/shared';
 import { RoadEditor } from './RoadEditor';
 
 export function LiveNetwork(props: {
@@ -22,7 +22,7 @@ export function LiveNetwork(props: {
   const [editingRoad, setEditingRoad] = useState<string | null>(null);
   const [roadsOpen, setRoadsOpen] = useState(false);
   const preview = roadsOpen
-    ? ((props.algorithm === 'dijkstra' ? editingRoad : null) ?? hoveredRoad)
+    ? ((usesLinkCost(props.algorithm) ? editingRoad : null) ?? hoveredRoad)
     : null;
   const { onRoadPreview } = props;
   useEffect(() => {
@@ -70,11 +70,15 @@ export function LiveNetwork(props: {
       <p className="hint small">
         An offline connection interrupts only groups that have not passed it. Those groups retry
         from the sender over a new{' '}
-        {props.algorithm === 'dijkstra' ? 'minimum-cost Dijkstra' : 'fewest-hop BFS'} route. If none
-        exists, delivery is incomplete until you restore connectivity. Groups already past the
-        failure keep going. Reopening a connection recalculates waiting groups from the sender and
-        moving groups from their next router, without sending them backwards to the lot. Delivered
-        groups remain delivered. This is a simplified simulation, not OSPF.
+        {
+          { bfs: 'fewest-hop BFS', dijkstra: 'minimum-cost Dijkstra', bgp: 'policy-based BGP' }[
+            props.algorithm
+          ]
+        }{' '}
+        route. If none exists, delivery is incomplete until you restore connectivity. Groups already
+        past the failure keep going. Reopening a connection recalculates waiting groups from the
+        sender and moving groups from their next router, without sending them backwards to the lot.
+        Delivered groups remain delivered. This is a simplified simulation, not OSPF or BGP.
       </p>
       <p role="status">
         {props.busy
@@ -116,7 +120,7 @@ export function LiveNetwork(props: {
                 if (!editing) setHoveredRoad(null);
               }}
               onPreview={(active) => setHoveredRoad(active ? l.id : null)}
-              weighted={props.algorithm === 'dijkstra'}
+              weighted={usesLinkCost(props.algorithm)}
               label={roadName(l.id)}
               distanceKm={l.distanceKm}
               mbps={bandwidthFor(l.id, props.bandwidths)}
