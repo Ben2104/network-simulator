@@ -136,6 +136,12 @@ and cruising speeds vary between sends; every group still follows the chosen rou
 
 ### 9. 3D rendering rules
 
+- Depth uses a logarithmic buffer across the map/sea/overlays so the wide camera range does not
+  collapse their near-ground separation at distant or shallow views. Station glow/rings have
+  separate heights and fixed transparent render order; opaque terrain/models still occlude them.
+  Idle roads fade in a 1.2 px line only when their physical width drops below two screen pixels,
+  avoiding subpixel shimmer without covering lane markings up close. A browser regression probes
+  real halo/road meshes and inland land-versus-water coverage at six camera poses.
 - React Three Fiber + drei. Scene state comes from React; **per-frame motion does not.**
   `<Cars>` uses `useFrame` + refs to update instanced matrices. Never `setState` per frame.
 - Ground: Natural Earth (public domain) outlines of the West Coast and interior states (CA, OR,
