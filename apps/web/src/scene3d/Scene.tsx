@@ -181,7 +181,8 @@ export const Scene = memo(function Scene(props: SceneProps) {
         flat
         dpr={[1, 2]}
         camera={{ fov: 40, near: 0.5, far: 9000, position: [0, 900, 900] }}
-        gl={{ antialias: true, preserveDrawingBuffer: true }}
+        // A large map with centimetre-height overlays needs depth precision at overview distance.
+        gl={{ antialias: true, logarithmicDepthBuffer: true, preserveDrawingBuffer: true }}
         aria-label="3D West Coast network map"
         data-testid="scene3d"
         onCreated={(state) => {
