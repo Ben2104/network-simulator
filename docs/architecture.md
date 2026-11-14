@@ -105,7 +105,8 @@ whatever internet path ISPs choose; the cars show an illustrative BFS route.
 ### 4. BFS on a geographic map
 
 BFS minimizes **hop count**, not distance. Real routers weigh links (OSPF/IS-IS costs, BGP
-policy). We keep BFS and design the topology so fewest-hop routes look sensible on the map:
+policy); the Dijkstra and BGP modes below model simplified versions of both. We keep BFS as the
+default and design the topology so fewest-hop routes look sensible on the map:
 
 - No long cross-region shortcut links in the default network (unit-tested invariant).
 - ≥ 2 station-disjoint routes CSULB → Oregon so a single failure always has a detour.
@@ -351,6 +352,55 @@ values). Existing requests keep the exact four-field BFS response. Requests expl
 routing settings also receive `algorithm` and `totalCost` (null if unreachable); Dijkstra trace
 steps add optional `cost`. Unknown road IDs, invalid keys, unsupported modes and invalid Mbps
 are rejected. Deploy the extended API before a frontend that sends the new optional fields.
+
+### Simplified BGP routing
+
+`algorithm: 'bgp'` routes between **Autonomous Systems** by business policy, the way the internet's
+inter-domain routing does, then uses the configured road costs inside each AS (standing in for an
+IGP such as OSPF). It is a teaching model: the ASes, private ASNs (64512–64560) and agreements are
+invented in `packages/shared/src/bgp.ts` and do not describe real ISPs.
+
+| ASN   | Name             | Stations                                                                  |
+| ----- | ---------------- | ------------------------------------------------------------------------- |
+| 64512 | Campus Net       | csulb, el-segundo                                                         |
+| 64520 | SoCal Metro      | lb-isp, la-wilshire, riverside                                            |
+| 64530 | Coastal Backbone | slo, san-jose, oakland, redding, medford, eugene, portland                |
+| 64540 | Valley Backbone  | bakersfield, fresno, sacramento, reno, klamath-falls                      |
+| 64550 | Desert Carrier   | barstow, las-vegas, tonopah, winnemucca, boise, ontario, burns, pendleton |
+| 64560 | Oregon Cloud     | bend, oregon-dc                                                           |
+
+Agreements: SoCal Metro → Campus Net, Valley Backbone → SoCal Metro, Desert Carrier → Oregon Cloud
+and Valley Backbone → Oregon Cloud are provider → customer. Campus Net ⇄ Coastal Backbone, SoCal
+Metro ⇄ Desert Carrier, Coastal Backbone ⇄ Valley Backbone, Valley Backbone ⇄ Desert Carrier and
+Coastal Backbone ⇄ Oregon Cloud are peers. Tests keep every station in exactly one AS, every AS
+connected by its own roads, and every inter-AS road covered by an agreement.
+
+Algorithm (`apps/server/src/graph/bgp.ts`, pure and deterministic):
+
+1. Each connected piece of an AS (after failures) is one BGP speaker. A split AS has several
+   speakers; loop prevention stops a path from re-entering an ASN.
+2. The data center's AS originates the route. Speakers exchange routes under Gao–Rexford export
+   rules: own and customer-learned routes go to every neighbor; peer- and provider-learned routes
+   go only to customers. Rounds repeat until nothing changes.
+3. Each speaker keeps one best route: highest local preference (customer 300 > peer 200 > provider
+   100), then shortest AS path, then lowest neighbor ASN (a stand-in for BGP's later tie-breakers
+   such as MED and router ID).
+4. The sender's chosen AS path is expanded to roads with Dijkstra on configured cost, allowed only
+   inside an AS on the path or forward to the next one.
+
+The response adds `asPath` (ASNs, or `null` when unreachable); `visitOrder` is the settled order of
+that final Dijkstra, or of the sender's own AS when no route is advertised.
+
+| Failures                  | BGP route                                                                                                                   |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| none                      | desert, 10 hops: SoCal Metro prefers its free peer Desert Carrier over paid Valley Backbone                                 |
+| road `riverside--barstow` | inland via Valley Backbone (paid provider), 9 hops                                                                          |
+| station `pendleton`       | desert, then ontario → burns → bend → oregon-dc                                                                             |
+| `barstow` + `sacramento`  | none, although BFS still finds the coast: Coastal Backbone learns Oregon from a peer and only re-advertises it to customers |
+
+Not modeled: iBGP, MED, communities, route reflectors, prefixes, timers, per-session local
+preference and route flap. Every group still follows the returned route, and live failure retries
+use BGP with the same settings.
 
 ## Playback
 
@@ -608,6 +658,6 @@ week.
 ## Stretch goals
 
 1. Abrupt packet loss/retransmission (live failure retries are implemented above).
-2. Distance/latency routing metrics (bandwidth-cost Dijkstra and BFS comparison are implemented).
+2. Distance/latency routing metrics (bandwidth-cost Dijkstra, simplified BGP and BFS comparison are implemented).
 3. Guided demo mode.
 4. Follow-car camera polish, day/night lighting.

@@ -1,4 +1,4 @@
-import type { RoutingAlgorithm } from '@netsim/shared';
+import { autonomousSystem, usesLinkCost, type RoutingAlgorithm } from '@netsim/shared';
 import type { Phase } from '../sim/useSimulation';
 
 export type Tone = 'neutral' | 'info' | 'busy' | 'success' | 'danger';
@@ -32,15 +32,33 @@ export interface PhaseCopy {
 
 const SENDER = 'CSULB parking lot';
 const DEST = 'US-West Data Center, Oregon';
+export const ALGORITHM_NAME: Record<RoutingAlgorithm, string> = {
+  bfs: 'BFS',
+  dijkstra: 'Dijkstra',
+  bgp: 'BGP',
+};
+
+/** What each mode optimizes, for short sentences like "the fewest-hop path". */
+export const ALGORITHM_GOAL: Record<RoutingAlgorithm, string> = {
+  bfs: 'fewest-hop',
+  dijkstra: 'lowest-cost',
+  bgp: 'policy-preferred',
+};
+
+export const asLabel = (asn: number) => `AS${asn} ${autonomousSystem(asn)?.name ?? ''}`.trim();
+
 export const formatBytes = (n: number) => `${n.toLocaleString('en-US')} B`;
 
 export function describePhase(i: CopyInput): PhaseCopy {
   const { cars } = i;
-  const weighted = i.algorithm === 'dijkstra';
-  const name = weighted ? 'Dijkstra' : 'BFS';
-  const hint = weighted
-    ? 'Dijkstra routing; orange shows remaining group routes; cost is not measured latency'
-    : 'BFS routing; orange shows remaining group routes';
+  const algorithm = i.algorithm ?? 'bfs';
+  const name = ALGORITHM_NAME[algorithm];
+  const hint =
+    algorithm === 'bgp'
+      ? 'Simplified BGP routing; illustrative AS policies; orange shows remaining group routes'
+      : usesLinkCost(algorithm)
+        ? 'Dijkstra routing; orange shows remaining group routes; cost is not measured latency'
+        : 'BFS routing; orange shows remaining group routes';
   switch (i.phase) {
     case 'idle':
       return {
@@ -59,7 +77,7 @@ export function describePhase(i: CopyInput): PhaseCopy {
     case 'routing':
       return {
         tone: 'busy',
-        banner: `Routing · Asking the route service for the ${weighted ? 'lowest-cost' : 'fewest-hop'} path`,
+        banner: `Routing · Asking the route service for the ${ALGORITHM_GOAL[algorithm]} path`,
         footer: 'Routing · Waiting for the route service',
         footerHint: hint,
       };

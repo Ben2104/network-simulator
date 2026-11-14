@@ -174,6 +174,7 @@ export function App() {
                   <Suspense fallback={<LoadingScreen mapReady={false} serverReady attempt={1} />}>
                     <Scene
                       network={network}
+                      algorithm={activeAlgorithm}
                       previewRoadId={previewRoadId}
                       previewNodeId={previewNodeId}
                       disabledNodeIds={sim.disabledNodeIds}

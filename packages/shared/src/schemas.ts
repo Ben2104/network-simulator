@@ -41,7 +41,11 @@ export const NetworkSchema = Type.Object({
   serverId: Id,
 });
 
-export const RoutingAlgorithmSchema = Type.Union([Type.Literal('bfs'), Type.Literal('dijkstra')]);
+export const RoutingAlgorithmSchema = Type.Union([
+  Type.Literal('bfs'),
+  Type.Literal('dijkstra'),
+  Type.Literal('bgp'),
+]);
 export const LinkBandwidthsSchema = Type.Record(
   Type.String({ pattern: `^[a-z0-9-]{1,${LIMITS.maxIdLength}}$` }),
   Type.Union([Type.Literal(10), Type.Literal(100), Type.Literal(1000)]),
@@ -54,7 +58,7 @@ export const RouteRequestSchema = Type.Object(
     fromNodeId: Type.Optional(Id),
     /** Omitted by existing clients: defaults to BFS. */
     algorithm: Type.Optional(RoutingAlgorithmSchema),
-    /** Per-request settings only. Omitted roads default to 1000 Mbps. */
+    /** Per-request settings only. Omitted roads default to 1000 Mbps. Dijkstra and BGP (inside each AS) use them. */
     linkBandwidthMbps: Type.Optional(LinkBandwidthsSchema),
     disabledNodeIds: Type.Array(Id, { maxItems: LIMITS.maxDisabledIds, uniqueItems: true }),
     disabledLinkIds: Type.Array(Id, { maxItems: LIMITS.maxDisabledIds, uniqueItems: true }),
@@ -67,7 +71,7 @@ export const BfsStepSchema = Type.Object({
   parentId: Type.Union([Id, Type.Null()]),
   viaLinkId: Type.Union([Id, Type.Null()]),
   depth: Type.Integer({ minimum: 0 }),
-  /** Settled cumulative cost, present for Dijkstra only. */
+  /** Settled cumulative cost, present for Dijkstra and BGP. */
   cost: Type.Optional(Type.Number({ minimum: 0 })),
 });
 
@@ -82,6 +86,8 @@ export const RouteResponseSchema = Type.Object({
   /** Metadata included when a client explicitly requests routing settings. */
   algorithm: Type.Optional(RoutingAlgorithmSchema),
   totalCost: Type.Optional(Type.Union([Type.Number({ minimum: 0 }), Type.Null()])),
+  /** BGP only: ASNs from the sender's AS to the data center's AS. Null if unreachable. */
+  asPath: Type.Optional(Type.Union([Type.Array(Type.Integer({ minimum: 1 })), Type.Null()])),
 });
 
 export const PacketizeRequestSchema = Type.Union([

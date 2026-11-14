@@ -1,6 +1,13 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import type { Car, Network, RouteResponse } from '@netsim/shared';
+import {
+  asnOf,
+  usesLinkCost,
+  type Car,
+  type Network,
+  type RouteResponse,
+  type RoutingAlgorithm,
+} from '@netsim/shared';
 import { BFS_STEP_SEC, carStatus, type Timeline } from '../sim/timeline';
 import type { Phase } from '../sim/useSimulation';
 import { CameraRig, type CameraMode, type RigApi } from './CameraRig';
@@ -27,6 +34,8 @@ export interface SceneProps {
   counts: { waiting: number; blocked: number; arrived: number };
   cars: readonly Car[];
   route: RouteResponse | null;
+  /** Selected mode; BGP labels each station with its illustrative AS. */
+  algorithm: RoutingAlgorithm;
   timeline: Timeline | null;
   clockRef: { readonly current: number };
   visitedNodeIds: ReadonlySet<string>;
@@ -138,10 +147,12 @@ export const Scene = memo(function Scene(props: SceneProps) {
           text: state === 'offline' ? `${n.label} · Offline` : n.label,
           sub:
             phase === 'searching' && v && state === 'visited'
-              ? route?.algorithm === 'dijkstra'
-                ? `Settled · cost ${route.visitOrder.find((step) => step.nodeId === n.id)?.cost?.toFixed(2) ?? '—'}`
+              ? usesLinkCost(route?.algorithm)
+                ? `Settled · cost ${route?.visitOrder.find((step) => step.nodeId === n.id)?.cost?.toFixed(2) ?? '—'}`
                 : `BFS depth ${v.depth}`
-              : undefined,
+              : props.algorithm === 'bgp' && state !== 'offline'
+                ? `AS${asnOf(n.id)}`
+                : undefined,
           x: p.x,
           y: 7,
           z: p.z,
@@ -149,7 +160,7 @@ export const Scene = memo(function Scene(props: SceneProps) {
           tone: state,
         };
       }),
-    [network, world, stationState, visit, phase, carCount, props.counts, route],
+    [network, world, stationState, visit, phase, carCount, props.counts, route, props.algorithm],
   );
 
   const overview = useMemo(
