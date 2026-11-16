@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   project,
+  bandwidthFor,
   isBandwidthMbps,
   ROUTING,
   type BandwidthMbps,
@@ -13,6 +14,7 @@ import {
 import { api, ApiRequestError } from '../api/client';
 import { packetize } from './packetize';
 import { planRun } from './plan';
+import { scheduleBottleneck } from './congestion';
 import { nextNodeIndex, scheduleTimeline } from './progress';
 import { blockedTimeline, clockStop, needsRetry, retryTimeline } from './reroute';
 import {
@@ -75,6 +77,7 @@ export function useSimulation(network: Network | null) {
   const [upload, setUpload] = useState<Upload | null>(null);
   const [inputError, setInputError] = useState<string | null>(null);
   const [algorithm, setAlgorithm] = useState<RoutingAlgorithm>('bfs');
+  const [bottleneckId, setBottleneckId] = useState('');
   const [linkBandwidthMbps, setLinkBandwidthMbps] = useState<Record<string, BandwidthMbps>>({});
   const [disabledNodeIds, setDisabledNodeIds] = useState<ReadonlySet<string>>(new Set());
   const [disabledLinkIds, setDisabledLinkIds] = useState<ReadonlySet<string>>(new Set());
@@ -161,6 +164,8 @@ export function useSimulation(network: Network | null) {
     if (clock < run.timeline.driveStart) return 'searching';
     return clock < run.timeline.end ? 'driving' : 'delivered';
   }, [apiError, upload, routing, run, clock, rerouteCount]);
+  const failuresLocked =
+    !!run?.timeline.bottleneck && (phase === 'searching' || phase === 'driving');
 
   const frames: CarFrame[] = useMemo(
     () => (run ? framesAt(run.timeline, clock) : []),
@@ -237,6 +242,8 @@ export function useSimulation(network: Network | null) {
         disabledLinkIds: [...disabledLinkIds],
       });
       if (id !== requestId.current) return;
+      const bottleneck = algorithm === 'dijkstra' ? bottleneckId : '';
+      const usesBottleneck = !!bottleneck && route.linkPath.includes(bottleneck);
       const timeline =
         route.status === 'unreachable'
           ? blockedTimeline(
@@ -245,20 +252,36 @@ export function useSimulation(network: Network | null) {
               pos,
               route.visitOrder.length * BFS_STEP_SEC,
             )
-          : planRun(upload.packets, route, pos, Math.random);
+          : planRun(upload.packets, route, pos, Math.random, usesBottleneck);
+      const scheduled = scheduleTimeline(network, timeline);
       setRerouteCount(0);
-      setRun({ route, timeline: scheduleTimeline(network, timeline) });
+      setRun({
+        route,
+        timeline:
+          bottleneck && route.status === 'routed'
+            ? scheduleBottleneck(scheduled, bottleneck, bandwidthFor(bottleneck, linkBandwidthMbps))
+            : scheduled,
+      });
     } catch (e) {
       if (id !== requestId.current) return;
       setApiError(e instanceof ApiRequestError ? e.message : 'Could not reach the route service.');
     } finally {
       if (id === requestId.current) setRouting(false);
     }
-  }, [network, pos, upload, disabledNodeIds, disabledLinkIds, algorithm, linkBandwidthMbps]);
+  }, [
+    network,
+    pos,
+    upload,
+    disabledNodeIds,
+    disabledLinkIds,
+    algorithm,
+    linkBandwidthMbps,
+    bottleneckId,
+  ]);
 
   const updateFailures = useCallback(
     async (nodes: ReadonlySet<string>, links: ReadonlySet<string>) => {
-      if (!network || rerouting || routing || recalculating.current) return;
+      if (!network || rerouting || routing || failuresLocked || recalculating.current) return;
       const restoring =
         restorationPending.current ||
         [...disabledNodeIds].some((id) => !nodes.has(id)) ||
@@ -327,6 +350,7 @@ export function useSimulation(network: Network | null) {
       routing,
       run,
       phase,
+      failuresLocked,
       pos,
       algorithm,
       linkBandwidthMbps,
@@ -375,6 +399,11 @@ export function useSimulation(network: Network | null) {
 
   return {
     algorithm,
+    bottleneckId,
+    failuresLocked,
+    selectBottleneck: (id: string) => {
+      if (canConfigure) setBottleneckId(id);
+    },
     linkBandwidthMbps,
     canConfigure,
     selectAlgorithm: (value: RoutingAlgorithm) => {

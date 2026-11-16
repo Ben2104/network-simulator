@@ -178,7 +178,9 @@ export function App() {
                       previewNodeId={previewNodeId}
                       disabledNodeIds={sim.disabledNodeIds}
                       disabledLinkIds={sim.disabledLinkIds}
-                      onToggleNode={(id) => sim.toggleFailure('node', id)}
+                      onToggleNode={
+                        sim.failuresLocked ? undefined : (id) => sim.toggleFailure('node', id)
+                      }
                       phase={phase}
                       counts={{
                         arrived: sim.frames.filter((f) => f.status === 'arrived').length,
@@ -234,10 +236,37 @@ export function App() {
             <RoutingControls
               algorithm={sim.algorithm}
               locked={!sim.canConfigure}
+              failuresLocked={sim.failuresLocked}
               onChange={sim.selectAlgorithm}
               onResetBandwidths={sim.resetBandwidths}
               customized={Object.keys(sim.linkBandwidthMbps).length}
             />
+            {sim.algorithm === 'dijkstra' && (
+              <section className="card bandwidth-editor" aria-label="Congestion demo">
+                <label className="field-label" htmlFor="bottleneck-road">
+                  Congestion demo
+                </label>
+                <select
+                  id="bottleneck-road"
+                  value={sim.bottleneckId}
+                  disabled={!sim.canConfigure}
+                  onChange={(event) => sim.selectBottleneck(event.target.value)}
+                >
+                  <option value="">Off</option>
+                  {network.links.map((link) => (
+                    <option key={link.id} value={link.id}>
+                      {network.nodes.find((node) => node.id === link.source)?.label} →{' '}
+                      {network.nodes.find((node) => node.id === link.target)?.label} ·{' '}
+                      {sim.linkBandwidthMbps[link.id] ?? 1000} Mbps
+                    </option>
+                  ))}
+                </select>
+                <p className="hint small">
+                  Send a large preset to see groups queue if the route uses this road. Roads and
+                  routers are locked during the demo.
+                </p>
+              </section>
+            )}
             <YourFile
               phase={phase}
               upload={upload}
@@ -269,6 +298,7 @@ export function App() {
               nodes={sim.disabledNodeIds}
               links={sim.disabledLinkIds}
               busy={sim.rerouting || phase === 'routing'}
+              failuresLocked={sim.failuresLocked}
               changes={sim.rerouteCount}
               onToggle={sim.toggleFailure}
               onRestore={sim.restoreAll}

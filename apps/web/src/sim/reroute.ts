@@ -4,6 +4,7 @@ import {
   CAR_SPEED,
   CAR_STAGGER_SEC,
   carStatus,
+  queueWait,
   type CarPlan,
   type Point,
   type Timeline,
@@ -141,7 +142,12 @@ export function clockStop(timeline: Timeline): number {
 /** Active travel over all attempts. Queuing, blocked waits and HTTP latency are excluded. */
 export function groupTravelTime(plan: CarPlan, now: number): number {
   const history = plan.previous ? groupTravelTime(plan.previous, plan.interruptedAt!) : 0;
-  return history + (plan.blocked ? 0 : Math.max(0, Math.min(now, plan.arriveAt) - plan.departAt));
+  return (
+    history +
+    (plan.blocked
+      ? 0
+      : Math.max(0, Math.min(now, plan.arriveAt) - plan.departAt - queueWait(plan, now)))
+  );
 }
 
 export function transferTiming(timeline: Timeline, now: number) {
