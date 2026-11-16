@@ -1,7 +1,7 @@
 import type { Car } from '@netsim/shared';
 import { groupTravelTime, transferTiming } from '../sim/reroute';
 import { groupHops } from '../sim/progress';
-import { carStatus, type Timeline } from '../sim/timeline';
+import { carStatus, queueWait, type Timeline } from '../sim/timeline';
 
 const seconds = (n: number) => `${Math.max(0, n).toFixed(2)} s`;
 
@@ -13,6 +13,7 @@ export function TransferTiming(props: {
 }) {
   const { timeline, now } = props;
   const timing = timeline ? transferTiming(timeline, now) : null;
+  const bottleneck = timeline?.bottleneck;
   return (
     <section className="card" aria-label="Transfer timing">
       <h2>Transfer timing</h2>
@@ -23,6 +24,13 @@ export function TransferTiming(props: {
         <p className="hint">Send a file or message to see timings.</p>
       ) : (
         <>
+          {bottleneck && (
+            <p className="hint">
+              {bottleneck.used
+                ? `Bottleneck · ${bottleneck.mbps.toLocaleString('en-US')} Mbps · ${timeline.plans.filter(({ bottleneck: stop }) => stop && now >= stop.arrival && now < stop.start).length} groups queued`
+                : 'The selected route bypassed the bottleneck.'}
+            </p>
+          )}
           <dl className="timing-summary">
             <div>
               <dt>Transfer run time{props.paused ? ' (paused)' : ''}</dt>
@@ -48,14 +56,15 @@ export function TransferTiming(props: {
           <div className="timing-scroll" tabIndex={0} role="region" aria-label="Packet group times">
             <table className="timing-table">
               <caption>
-                Active travel time across attempts; blocked waits excluded. Hops count completed
-                roads across attempts and roads remaining on the current route.
+                Active travel time across attempts; queue and blocked waits excluded. Hops count
+                completed roads across attempts and roads remaining on the current route.
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Group / packets</th>
                   <th scope="col">Status</th>
                   <th scope="col">Travel time</th>
+                  {bottleneck?.used && <th scope="col">Queue wait</th>}
                 </tr>
               </thead>
               <tbody>
@@ -63,6 +72,7 @@ export function TransferTiming(props: {
                   const plan = timeline.plans.find((p) => p.carId === car.id);
                   const status = plan ? carStatus(plan, now) : 'blocked';
                   const elapsed = plan ? groupTravelTime(plan, now) : 0;
+                  const stop = plan?.bottleneck;
                   return (
                     <tr key={car.id}>
                       <th scope="row">
@@ -72,7 +82,13 @@ export function TransferTiming(props: {
                         </span>
                       </th>
                       <td>
-                        {status === 'blocked' ? 'No route — waiting at sender' : status}
+                        {stop && now >= stop.arrival && now < stop.release
+                          ? now < stop.start
+                            ? 'Queued at bottleneck'
+                            : 'Transmitting'
+                          : status === 'blocked'
+                            ? 'No route — waiting at sender'
+                            : status}
                         {plan && (
                           <span className="hint small">
                             Hops: {groupHops(plan, now).completed} completed ·{' '}
@@ -84,6 +100,7 @@ export function TransferTiming(props: {
                         )}
                       </td>
                       <td>{plan ? seconds(elapsed) : '—'}</td>
+                      {bottleneck?.used && <td>{plan ? seconds(queueWait(plan, now)) : '—'}</td>}
                     </tr>
                   );
                 })}

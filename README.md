@@ -32,6 +32,12 @@ first (customer routes beat peer routes, which beat paid-provider routes), then 
 path; the same bandwidth costs only pick roads inside each AS. On the healthy network BGP takes the
 10-hop desert route because SoCal Metro prefers its free peer over its paid provider. The AS map
 and agreements are in `packages/shared/src/bgp.ts` and `docs/architecture.md`.
+### Congestion demo
+
+In Dijkstra mode, choose a road in **Congestion demo**, select a large file preset, and press
+**Send**. If the route uses that road, groups leave together and take turns transmitting there
+at its configured rate. **Transfer timing** shows the number queued and each group's wait.
+Use slow playback to see short waits. Outage controls are locked during the demo.
 
 ## Quick start
 

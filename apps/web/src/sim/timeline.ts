@@ -35,6 +35,7 @@ export interface CarPlan {
   arriveAt: number;
   /** Actual rendered router crossing times, populated by the simulation scheduler. */
   nodeTimes?: number[];
+  bottleneck?: { arrival: number; start: number; release: number };
   /** Preserve movement until reaching this node, then use the new suffix without a retry. */
   handoff?: { plan: CarPlan; at: number; nodeIndex: number };
   /** Previous attempt retained only for timing; replacement copies restart at the sender. */
@@ -49,6 +50,7 @@ export interface Timeline {
   driveStart: number;
   plans: CarPlan[];
   end: number;
+  bottleneck?: { linkId: string; mbps: number; used: boolean };
 }
 
 export interface CarFrame {
@@ -74,6 +76,7 @@ export function buildTimeline(
   pos: ReadonlyMap<string, Point>,
   bfsSteps: number,
   rng?: () => number,
+  stagger = CAR_STAGGER_SEC,
 ): Timeline {
   const driveStart = bfsSteps * BFS_STEP_SEC;
   const speeds = cars
@@ -84,7 +87,7 @@ export function buildTimeline(
   const plans = cars.flatMap((car, i): CarPlan[] => {
     const route = routes[i];
     if (!route) return [];
-    if (i > 0) departAt += CAR_STAGGER_SEC * (rng ? 0.55 + rng() * 0.9 : 1);
+    if (i > 0) departAt += stagger * (rng ? 0.55 + rng() * 0.9 : 1);
     const points = route.nodeIds.map((id) => pos.get(id)!);
     const cum = [0];
     for (let k = 1; k < points.length; k++) {
@@ -145,7 +148,7 @@ export function carFrame(plan: CarPlan, t: number): CarFrame {
     };
   }
   const total = plan.cum[plan.cum.length - 1]!;
-  const dist = Math.min(Math.max((t - plan.departAt) * plan.speed, 0), total);
+  const dist = Math.min(Math.max((movementTime(plan, t) - plan.departAt) * plan.speed, 0), total);
   let k = 1;
   while (k < plan.cum.length - 1 && plan.cum[k]! < dist) k++;
   const a = plan.points[k - 1]!;
@@ -160,6 +163,18 @@ export function carFrame(plan: CarPlan, t: number): CarFrame {
     y: a.y + (b.y - a.y) * f,
     angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
   };
+}
+
+/** Freeze motion at the bottleneck during queueing and transmission. */
+export function movementTime(plan: Pick<CarPlan, 'bottleneck'>, t: number): number {
+  const stop = plan.bottleneck;
+  if (!stop || t < stop.arrival) return t;
+  return Math.max(stop.arrival, t - (stop.release - stop.arrival));
+}
+
+export function queueWait(plan: Pick<CarPlan, 'bottleneck'>, t: number): number {
+  const stop = plan.bottleneck;
+  return stop ? Math.max(0, Math.min(t, stop.start) - stop.arrival) : 0;
 }
 
 export function framesAt(tl: Timeline, t: number): CarFrame[] {

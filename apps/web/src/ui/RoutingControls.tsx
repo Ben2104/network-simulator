@@ -17,6 +17,7 @@ const HINT: Record<RoutingAlgorithm, string> = {
 export function RoutingControls(props: {
   algorithm: RoutingAlgorithm;
   locked: boolean;
+  failuresLocked?: boolean;
   onChange: (mode: RoutingAlgorithm) => void;
   onResetBandwidths: () => void;
   customized: number;
@@ -51,7 +52,9 @@ export function RoutingControls(props: {
       {props.algorithm === 'bgp' && <AsPolicies />}
       <p className="hint small">
         {props.locked
-          ? 'Routing settings are locked during a transfer. Online/offline switches still work.'
+          ? props.failuresLocked
+            ? 'Routing settings and outage controls are locked during the congestion demo.'
+            : 'Routing settings are locked during a transfer. Online/offline switches still work.'
           : 'Settings apply to the next Send. Switching algorithm starts a new route comparison.'}
       </p>
       {weighted && (
