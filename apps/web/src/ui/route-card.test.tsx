@@ -49,6 +49,61 @@ describe('algorithm-specific route display', () => {
     expect(html).toContain('Settled order');
     expect(html).not.toContain('FIFO');
   });
+  it('shows the AS path, policy note and cost for BGP', () => {
+    const html = renderToStaticMarkup(
+      <RouteCard
+        network={network}
+        route={{ ...route, algorithm: 'bgp', asPath: [64512, 64520, 64550, 64560] }}
+        algorithm="bgp"
+        phase="delivered"
+        visitedCount={1}
+        apiError={null}
+      />,
+    );
+    expect(html).toContain('Route (BGP)');
+    expect(html).toContain('AS path');
+    expect(html).toContain('AS64520 SoCal Metro → AS64550 Desert Carrier');
+    expect(html).toContain('business policy first');
+    expect(html).toContain('Total route cost');
+  });
+  it('explains a BGP policy dead end', () => {
+    const html = renderToStaticMarkup(
+      <RouteCard
+        network={network}
+        route={{
+          status: 'unreachable',
+          path: [],
+          linkPath: [],
+          visitOrder: route.visitOrder,
+          algorithm: 'bgp',
+          asPath: null,
+          totalCost: null,
+        }}
+        algorithm="bgp"
+        phase="noRoute"
+        visitedCount={1}
+        apiError={null}
+      />,
+    );
+    expect(html).toContain('policy does not allow them');
+  });
+  it('lists the AS agreements only in BGP mode', () => {
+    const controls = (algorithm: 'bfs' | 'bgp') =>
+      renderToStaticMarkup(
+        <RoutingControls
+          algorithm={algorithm}
+          locked={false}
+          onChange={() => {}}
+          onResetBandwidths={() => {}}
+          customized={0}
+        />,
+      );
+    expect(controls('bgp')).toContain('Autonomous Systems and agreements');
+    expect(controls('bgp')).toContain('SoCal Metro ⇄ Desert Carrier · peers');
+    expect(controls('bgp')).toContain('Reset bandwidths');
+    expect(controls('bfs')).not.toContain('Autonomous Systems');
+    expect(controls('bfs')).toContain('BGP · AS policy');
+  });
 });
 
 describe('bandwidth controls are exclusive to Dijkstra', () => {

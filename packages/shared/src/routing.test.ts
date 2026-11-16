@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { Value } from '@sinclair/typebox/value';
-import { ROUTING, bandwidthCost, bandwidthFor, isBandwidthMbps, pathCost } from './routing.js';
+import {
+  ROUTING,
+  bandwidthCost,
+  bandwidthFor,
+  isBandwidthMbps,
+  pathCost,
+  usesLinkCost,
+} from './routing.js';
+import { LOCAL_PREF, neighborRole } from './bgp.js';
 import { RouteRequestSchema, RouteResponseSchema } from './schemas.js';
 
 const base = { disabledNodeIds: [], disabledLinkIds: [] };
@@ -67,5 +75,25 @@ describe('configured routing cost and contract', () => {
         totalCost: null,
       }),
     ).toBe(true);
+  });
+  it('accepts the BGP mode and AS path in the contract', () => {
+    expect(Value.Check(RouteRequestSchema, { ...base, algorithm: 'bgp' })).toBe(true);
+    const reply = { status: 'routed', visitOrder: [], path: [], linkPath: [], algorithm: 'bgp' };
+    expect(Value.Check(RouteResponseSchema, { ...reply, asPath: [64512, 64560] })).toBe(true);
+    expect(Value.Check(RouteResponseSchema, { ...reply, asPath: null })).toBe(true);
+    expect([usesLinkCost('bfs'), usesLinkCost('dijkstra'), usesLinkCost('bgp')]).toEqual([
+      false,
+      true,
+      true,
+    ]);
+  });
+  it('reads business relationships from both sides', () => {
+    expect(neighborRole(64512, 64520)).toBe('provider');
+    expect(neighborRole(64520, 64512)).toBe('customer');
+    expect(neighborRole(64520, 64550)).toBe('peer');
+    expect(neighborRole(64550, 64520)).toBe('peer');
+    expect(neighborRole(64512, 64560)).toBeUndefined();
+    expect(LOCAL_PREF.customer).toBeGreaterThan(LOCAL_PREF.peer);
+    expect(LOCAL_PREF.peer).toBeGreaterThan(LOCAL_PREF.provider);
   });
 });

@@ -1,9 +1,10 @@
 # Component map — Figma → React
 
-Current routing extension: `RoutingControls` in `ui/RoutingControls.tsx` selects BFS/Dijkstra;
-`RoadEditor` in `ui/RoadEditor.tsx` offers only 10/100/1000 Mbps in the Roads list, visible only in Dijkstra mode. BFS hides bandwidth and cost controls. Settings are
+Current routing extension: `RoutingControls` in `ui/RoutingControls.tsx` selects BFS/Dijkstra/BGP;
+`RoadEditor` in `ui/RoadEditor.tsx` offers only 10/100/1000 Mbps in the Roads list, visible only in Dijkstra and BGP modes. BFS hides bandwidth and cost controls. Settings are
 locked during active transfers. `RouteCard` uses the actual response algorithm: BFS shows FIFO
-visit order; Dijkstra shows settled order and cumulative costs. Total route cost is unitless.
+visit order; Dijkstra and BGP show settled order and cumulative costs; BGP also shows the AS path, and
+`AsPolicies` (`ui/AsPolicies.tsx`) lists the illustrative ASes and agreements. Total route cost is unitless.
 See `docs/architecture.md` for the optional backward-compatible API fields and retry behavior.
 
 Source frames: Page 1 `1:2` (Broken Station) and `1:361` (Driving). Page `v2 Light` supersedes

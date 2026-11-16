@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import type { CameraMode, RigApi } from '../scene3d/CameraRig';
 import type { RoutingAlgorithm } from '@netsim/shared';
-import type { Tone } from './copy';
+import { ALGORITHM_NAME, type Tone } from './copy';
 
 export function Header() {
   const [help, setHelp] = useState(false);
@@ -42,9 +42,9 @@ export function Header() {
         <div className="help" role="note">
           <p>
             Submit a message or file size. It splits into 1,500-byte packets bundled into up to 24
-            cars. Choose BFS for fewest hops or Dijkstra for lowest configured road cost, then Send.
-            On Send, groups use the route chosen by the selected algorithm. Each station lights up
-            as a car reaches it.
+            cars. Choose BFS for fewest hops, Dijkstra for lowest configured road cost, or BGP for
+            illustrative AS business policy, then Send. On Send, groups use the route chosen by the
+            selected algorithm. Each station lights up as a car reaches it.
           </p>
           <p>
             Use the speed control to slow the cars down for a presentation. Click a router to switch
@@ -102,8 +102,7 @@ export function Legend(props: { algorithm?: RoutingAlgorithm }) {
           <i className="key car" /> Packet car
         </li>
         <li>
-          <i className="key visited" /> Visited by{' '}
-          {props.algorithm === 'dijkstra' ? 'Dijkstra' : 'BFS'}
+          <i className="key visited" /> Visited by {ALGORITHM_NAME[props.algorithm ?? 'bfs']}
         </li>
         <li>
           <i className="key broken" /> Offline

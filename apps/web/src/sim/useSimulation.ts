@@ -4,6 +4,7 @@ import {
   bandwidthFor,
   isBandwidthMbps,
   ROUTING,
+  usesLinkCost,
   type BandwidthMbps,
   type RoutingAlgorithm,
   type Network,
@@ -237,7 +238,7 @@ export function useSimulation(network: Network | null) {
     try {
       const route = await api.route({
         algorithm,
-        ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
+        ...(usesLinkCost(algorithm) ? { linkBandwidthMbps } : {}),
         disabledNodeIds: [...disabledNodeIds],
         disabledLinkIds: [...disabledLinkIds],
       });
@@ -310,7 +311,7 @@ export function useSimulation(network: Network | null) {
                 await api.route({
                   fromNodeId,
                   algorithm,
-                  ...(algorithm === 'dijkstra' ? { linkBandwidthMbps } : {}),
+                  ...(usesLinkCost(algorithm) ? { linkBandwidthMbps } : {}),
                   disabledNodeIds: [...nodes],
                   disabledLinkIds: [...links],
                 }),
