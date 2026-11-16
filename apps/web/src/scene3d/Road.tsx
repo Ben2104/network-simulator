@@ -2,6 +2,7 @@ import { memo, useMemo, useRef } from 'react';
 import { Line } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import type { MeshStandardMaterial } from 'three';
+import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { ribbon } from './geometry';
 import { C } from './palette';
@@ -49,9 +50,28 @@ export const Road = memo(function Road({ curve, state, previewed, id }: Props) {
     () => curve.map((p) => [p.x, 0.3, p.z] as [number, number, number]),
     [curve],
   );
+  // This overview-only stroke is lifted enough that its screen-space width does not sink
+  // halfway into the ground at grazing angles. It fades away before close-up lane paint matters.
+  const overviewLine = useMemo(
+    () => curve.map((p) => [p.x, 3, p.z] as [number, number, number]),
+    [curve],
+  );
   const glowMat = useRef<MeshStandardMaterial>(null);
+  const minimumLine = useRef<LineMaterial | null>(null);
+  const middle = curve[Math.floor(curve.length / 2)]!;
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera, size }) => {
+    // At overview distance, a world-width ribbon becomes subpixel and shimmers while orbiting.
+    // Fade in a one-pixel centre line only when the physical road is too small to resolve.
+    if (minimumLine.current && state === 'idle') {
+      const distance = Math.max(
+        1,
+        Math.hypot(camera.position.x - middle.x, camera.position.y, camera.position.z - middle.z),
+      );
+      const pixels =
+        (ROAD_WIDTH * size.height * camera.projectionMatrix.elements[5]!) / (2 * distance);
+      minimumLine.current.opacity = Math.max(0, Math.min(1, 2 - pixels));
+    }
     if (glowMat.current && state === 'path')
       glowMat.current.emissiveIntensity = 0.55 + Math.sin(clock.elapsedTime * 3) * 0.2;
   });
@@ -80,6 +100,20 @@ export const Road = memo(function Road({ curve, state, previewed, id }: Props) {
             gapSize={2}
           />
         </group>
+      )}
+      {state === 'idle' && (
+        <Line
+          points={overviewLine}
+          color={C.asphalt}
+          lineWidth={1.2}
+          transparent
+          opacity={0}
+          depthWrite={false}
+          onUpdate={(object: { material: LineMaterial }) => {
+            minimumLine.current = object.material;
+          }}
+          userData={{ minimumRoadLine: true }}
+        />
       )}
       {state === 'offline' && (
         <Line points={line} color={C.danger} lineWidth={4} dashed dashSize={3} gapSize={2} />

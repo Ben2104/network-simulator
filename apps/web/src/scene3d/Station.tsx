@@ -183,7 +183,7 @@ export const Station = memo(function Station(props: Props) {
         />
       </mesh>
       {/* Lit once a car has driven past: a route-coloured disc under the station. */}
-      <mesh ref={glow} position-y={0.1} rotation-x={-Math.PI / 2} visible={false}>
+      <mesh ref={glow} position-y={0.3} rotation-x={-Math.PI / 2} visible={false} renderOrder={1}>
         <circleGeometry args={[5.2, 40]} />
         <meshBasicMaterial
           ref={glowMat}
@@ -195,7 +195,7 @@ export const Station = memo(function Station(props: Props) {
         />
       </mesh>
       {/* "A car just passed" shockwave. */}
-      <mesh ref={burst} position-y={0.2} rotation-x={-Math.PI / 2} visible={false}>
+      <mesh ref={burst} position-y={0.4} rotation-x={-Math.PI / 2} visible={false} renderOrder={2}>
         <ringGeometry args={[4.4, 5.6, 48]} />
         <meshBasicMaterial
           ref={burstMat}
@@ -278,12 +278,12 @@ export const Station = memo(function Station(props: Props) {
 
         {/* Persistent halo once visited, plus the expanding BFS ring. */}
         {(state === 'visited' || state === 'path') && (
-          <mesh position-y={0.09} rotation-x={-Math.PI / 2}>
+          <mesh position-y={0.22} rotation-x={-Math.PI / 2} renderOrder={2}>
             <ringGeometry args={[3.1, 3.6, 40]} />
             <meshBasicMaterial color={color} transparent opacity={0.55} depthWrite={false} />
           </mesh>
         )}
-        <mesh ref={ring} position-y={0.12} rotation-x={-Math.PI / 2} visible={false}>
+        <mesh ref={ring} position-y={0.3} rotation-x={-Math.PI / 2} visible={false} renderOrder={3}>
           <ringGeometry args={[2.6, 3.0, 48]} />
           <meshBasicMaterial
             ref={ringMat}
